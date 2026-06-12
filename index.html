@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; style-src 'self'; script-src 'self'; connect-src 'self' https: http://localhost:* http://127.0.0.1:*; object-src 'self' blob:; frame-src 'self' blob:; base-uri 'none'">
+<title>SignOff by Offhand — zgody i dokumenty do podpisu</title>
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="style.css">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0f1b2d">
+</head>
+<body>
+
+<!-- ===== EKRAN: PIERWSZE URUCHOMIENIE ===== -->
+<section id="view-setup" class="view" hidden>
+  <div class="lock-card">
+    <div class="logo">🎬 <span>Sign<b>Off</b></span></div>
+    <div class="brand-by under">by OFFHAND</div>
+    <h1>Pierwsza konfiguracja</h1>
+    <p class="muted">Tworzone są konta administratorów. Dane szyfrowane na urządzeniu (AES-256-GCM). <strong>PIN-y nie są nigdzie zapisywane w postaci jawnej.</strong></p>
+    <label>Firma / administrator danych
+      <input type="text" id="setup-producer" placeholder="np. Offhand Hanna Nobis">
+    </label>
+    <label>Nazwa pierwszego projektu
+      <input type="text" id="setup-project" placeholder="np. „Dokument o…”">
+    </label>
+    <div class="admin-setup">
+      <h3>👑 Administrator 1: Hanna Nobis</h3>
+      <div class="grid2">
+        <label>PIN (min. 6 cyfr)<input type="password" id="setup-pin-h" inputmode="numeric" autocomplete="new-password" placeholder="••••••"></label>
+        <label>Powtórz PIN<input type="password" id="setup-pin-h2" inputmode="numeric" autocomplete="new-password" placeholder="••••••"></label>
+      </div>
+      <h3>👑 Administrator 2: Marek Żak</h3>
+      <div class="grid2">
+        <label>PIN (min. 6 cyfr)<input type="password" id="setup-pin-m" inputmode="numeric" autocomplete="new-password" placeholder="••••••"></label>
+        <label>Powtórz PIN<input type="password" id="setup-pin-m2" inputmode="numeric" autocomplete="new-password" placeholder="••••••"></label>
+      </div>
+    </div>
+    <p id="setup-error" class="error" hidden></p>
+    <button class="btn primary big" id="btn-setup">Utwórz zaszyfrowany magazyn</button>
+    <p class="credit">przygotował Marek Żak · dla Offhand Hanna Nobis</p>
+  </div>
+</section>
+
+<!-- ===== EKRAN: LOGOWANIE ===== -->
+<section id="view-lock" class="view" hidden>
+  <div class="lock-card">
+    <div class="logo">🎬 <span>Sign<b>Off</b></span></div>
+    <div class="brand-by under">by OFFHAND</div>
+    <h1 id="lock-title">Zaloguj się</h1>
+    <p class="muted">Wybierz konto i podaj PIN.</p>
+    <div id="account-buttons" class="op-buttons"></div>
+    <input type="password" id="lock-pin" inputmode="numeric" autocomplete="current-password" placeholder="PIN" class="pin-input">
+    <p id="lock-error" class="error" hidden></p>
+    <button class="btn primary big" id="btn-unlock">Zaloguj</button>
+    <p class="tiny muted">Tryb offline ✓ · AES-256-GCM ✓ · Blokada po 5 błędnych próbach ✓ · Kopia w chmurze E2E ✓</p>
+    <p class="credit">przygotował Marek Żak · dla Offhand Hanna Nobis</p>
+  </div>
+</section>
+
+<!-- ===== EKRAN: GŁÓWNY ===== -->
+<section id="view-home" class="view" hidden>
+  <header class="topbar">
+    <div class="brand-top"><div class="logo small">🎬 <span>Sign<b>Off</b></span></div><span class="brand-by inline">by OFFHAND</span></div>
+    <div class="topbar-right">
+      <span id="user-badge" class="badge planned" data-help="Zalogowany użytkownik. 👑 = administrator (pełne uprawnienia), 👤 = pracownik (tylko zbieranie zgód)."></span>
+      <span id="sync-badge" class="badge offline" data-help="Stan kopii w chmurze. Godzina = ostatnia udana synchronizacja; „oczekuje” = wyśle przy najbliższym połączeniu.">☁ —</span>
+      <span id="net-status" class="badge offline" data-help="Stan połączenia z internetem. Aplikacja działa w pełni offline — zgody zbiera się bez sieci.">offline</span>
+      <button class="btn ghost" id="btn-settings" data-help="Ustawienia: projekty, dokumenty, konta, chmura (administrator) oraz zmiana własnego PIN.">⚙</button>
+      <button class="btn ghost" id="btn-lock" data-help="Wylogowanie i zaszyfrowanie danych. Następna osoba musi podać swój PIN.">🔒 Wyloguj</button>
+    </div>
+  </header>
+  <main class="container">
+    <div class="home-head">
+      <div class="project-pick">
+        <label class="tiny muted">Aktywny projekt</label>
+        <select id="project-select"></select>
+        <p class="muted tiny" id="home-producer"></p>
+      </div>
+      <button class="btn primary big" id="btn-new" data-help="Rozpoczyna zbieranie nowej zgody: dane osoby → treść i dokumenty → podpis → zdjęcie → zapis.">＋ Nowa zgoda</button>
+    </div>
+    <div class="stats" id="home-stats"></div>
+    <div class="toolbar">
+      <input type="search" id="search" placeholder="Szukaj osoby…">
+      <button class="btn ghost" id="btn-verify" data-help="Sprawdza kryptograficznie (łańcuch SHA-256), czy żadna zapisana zgoda nie została zmodyfikowana ani usunięta poza aplikacją.">🛡 Weryfikuj integralność</button>
+      <button class="btn ghost admin-only" id="btn-export" data-help="Pobiera zaszyfrowaną kopię całej bazy do pliku. Bez PIN-u plik jest bezużyteczny — można go trzymać w chmurze lub na pendrive.">⬇ Kopia zapasowa</button>
+    </div>
+    <p id="verify-result" class="verify-result" hidden></p>
+    <div id="records-list" class="records"></div>
+  </main>
+</section>
+
+<!-- ===== EKRAN: KREATOR ZGODY ===== -->
+<section id="view-wizard" class="view" hidden>
+  <header class="topbar">
+    <button class="btn ghost" id="btn-wizard-cancel">✕ Anuluj</button>
+    <div class="steps" id="wizard-steps"></div>
+  </header>
+  <main class="container narrow">
+
+    <div class="wstep" id="wstep-1">
+      <h2>1. Dane osoby udzielającej zgody</h2>
+      <p class="muted tiny" id="wizard-project-label"></p>
+      <div class="grid2">
+        <label>Imię *<input type="text" id="f-first" autocomplete="off"></label>
+        <label>Nazwisko *<input type="text" id="f-last" autocomplete="off"></label>
+        <label>E-mail (kopia zgody)<input type="email" id="f-email" autocomplete="off"></label>
+        <label>Telefon<input type="tel" id="f-phone" autocomplete="off"></label>
+        <label>Nr dokumentu tożsamości (opcjonalnie)<input type="text" id="f-doc" autocomplete="off"></label>
+        <label>Rola / scena<input type="text" id="f-role" placeholder="np. bohater, przechodzień, wywiad" autocomplete="off"></label>
+      </div>
+      <label class="check big-check">
+        <input type="checkbox" id="f-minor">
+        <span>Osoba małoletnia — zgodę podpisuje rodzic / opiekun prawny</span>
+      </label>
+      <div id="guardian-box" class="guardian" hidden>
+        <h3>Dane opiekuna prawnego</h3>
+        <div class="grid2">
+          <label>Imię opiekuna *<input type="text" id="f-gfirst" autocomplete="off"></label>
+          <label>Nazwisko opiekuna *<input type="text" id="f-glast" autocomplete="off"></label>
+        </div>
+      </div>
+      <p class="error" id="err-1" hidden></p>
+      <div class="wnav"><span></span><button class="btn primary big" data-next="2">Dalej →</button></div>
+    </div>
+
+    <div class="wstep" id="wstep-2" hidden>
+      <h2>2. Treść zgody i dokumenty</h2>
+      <p class="muted">Przewiń i przeczytaj całość. Zgody można wyrazić dopiero po przewinięciu do końca.</p>
+      <div class="consent-text" id="consent-text"></div>
+      <div id="attach-box"></div>
+      <div id="consent-checks" class="checks-locked">
+        <label class="check big-check">
+          <input type="checkbox" id="c-image" disabled>
+          <span><b>Zezwolenie na rozpowszechnianie wizerunku</b> (art. 81 ustawy o prawie autorskim i prawach pokrewnych) — w zakresie opisanym powyżej. <em>Wymagane.</em></span>
+        </label>
+        <label class="check big-check">
+          <input type="checkbox" id="c-rodo" disabled>
+          <span><b>Zgoda na przetwarzanie danych osobowych</b> (art. 6 ust. 1 lit. a RODO) — zgodnie z klauzulą informacyjną powyżej. Mogę ją cofnąć w każdej chwili ze skutkiem na przyszłość. <em>Wymagane.</em></span>
+        </label>
+        <label class="check big-check">
+          <input type="checkbox" id="c-marketing" disabled>
+          <span><b>Zgoda dodatkowa:</b> wykorzystanie wizerunku w materiałach promocyjnych i marketingowych. <em>Dobrowolne — niezależnie odwoływalne.</em></span>
+        </label>
+      </div>
+      <p class="error" id="err-2" hidden></p>
+      <div class="wnav"><button class="btn ghost" data-prev="1">← Wstecz</button><button class="btn primary big" data-next="3">Dalej →</button></div>
+    </div>
+
+    <div class="wstep" id="wstep-3" hidden>
+      <h2 id="sign-title">3. Podpis</h2>
+      <p class="muted">Podpisz palcem lub rysikiem w ramce. Zapisywany jest wyłącznie <b>obraz podpisu</b> — bez danych biometrycznych (nacisku, prędkości).</p>
+      <div class="sig-wrap">
+        <canvas id="sig-canvas" width="700" height="260"></canvas>
+        <div class="sig-line"></div>
+        <span class="sig-label" id="sig-label"></span>
+      </div>
+      <div class="wnav-mini"><button class="btn ghost" id="btn-sig-clear">↺ Wyczyść podpis</button></div>
+      <p class="error" id="err-3" hidden></p>
+      <div class="wnav"><button class="btn ghost" data-prev="2">← Wstecz</button><button class="btn primary big" data-next="4">Dalej →</button></div>
+    </div>
+
+    <div class="wstep" id="wstep-4" hidden>
+      <h2>4. Zdjęcie osoby podpisującej (zalecane)</h2>
+      <p class="muted">Zdjęcie wzmacnia wartość dowodową zgody („to nie ja podpisałem” ✗). Zostanie osadzone w dokumencie PDF.</p>
+      <div class="cam-wrap">
+        <video id="cam-video" autoplay playsinline hidden></video>
+        <canvas id="cam-canvas" hidden></canvas>
+        <img id="cam-photo" alt="" hidden>
+        <div id="cam-placeholder" class="cam-placeholder">📷 Kamera wyłączona</div>
+      </div>
+      <div class="wnav-mini">
+        <button class="btn" id="btn-cam-start">📷 Włącz kamerę</button>
+        <button class="btn primary" id="btn-cam-shot" hidden>📸 Zrób zdjęcie</button>
+        <button class="btn ghost" id="btn-cam-retake" hidden>↺ Powtórz</button>
+      </div>
+      <p class="error" id="err-4" hidden></p>
+      <div class="wnav"><button class="btn ghost" data-prev="3">← Wstecz</button><button class="btn primary big" data-next="5" id="btn-to-5">Dalej →</button></div>
+    </div>
+
+    <div class="wstep" id="wstep-5" hidden>
+      <h2>5. Podsumowanie i zapis</h2>
+      <div id="summary" class="summary"></div>
+      <p class="muted tiny">Po zapisaniu dokument zostanie: zaszyfrowany (AES-256-GCM), opatrzony skrótem SHA-256, dołączony do łańcucha integralności i zsynchronizowany z chmurą (jeśli skonfigurowana).</p>
+      <p class="error" id="err-5" hidden></p>
+      <div class="wnav"><button class="btn ghost" data-prev="4">← Wstecz</button><button class="btn primary big" id="btn-save">💾 Zapisz zgodę</button></div>
+    </div>
+
+    <div class="wstep" id="wstep-6" hidden>
+      <div class="done">
+        <div class="done-icon">✅</div>
+        <h2>Zgoda zapisana i zabezpieczona</h2>
+        <p class="muted" id="done-info"></p>
+        <div class="done-actions">
+          <button class="btn primary big" id="btn-done-pdf">⬇ Pobierz PDF</button>
+          <button class="btn big" id="btn-done-share">📤 Wyślij / udostępnij</button>
+          <button class="btn big" id="btn-done-next">＋ Następna osoba</button>
+          <button class="btn ghost big" id="btn-done-home">Lista zgód</button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</section>
+
+<!-- ===== EKRAN: SZCZEGÓŁY ZGODY ===== -->
+<section id="view-detail" class="view" hidden>
+  <header class="topbar">
+    <button class="btn ghost" id="btn-detail-back">← Wróć</button>
+    <h2 id="detail-title" class="topbar-title"></h2>
+    <span></span>
+  </header>
+  <main class="container narrow" id="detail-body"></main>
+</section>
+
+<!-- ===== EKRAN: USTAWIENIA ===== -->
+<section id="view-settings" class="view" hidden>
+  <header class="topbar">
+    <button class="btn ghost" id="btn-settings-back">← Wróć</button>
+    <h2 class="topbar-title">Ustawienia</h2>
+    <span></span>
+  </header>
+  <main class="container narrow">
+
+    <div class="admin-only">
+      <h3>Firma</h3>
+      <label>Administrator danych / producent<input type="text" id="set-producer"></label>
+      <label>E-mail firmowy (nadawca kopii)<input type="email" id="set-email"></label>
+      <button class="btn primary" id="btn-set-save">Zapisz</button>
+      <hr>
+
+      <h3>Projekty zbierania zgód</h3>
+      <p class="tiny muted">Każdy projekt może mieć własną treść zgody, własne dokumenty PDF do podpisu oraz listę uprawnionych pracowników (puste = wszyscy). Klauzula RODO i informacja o e-podpisie dołączane zawsze.</p>
+      <div id="projects-list"></div>
+      <div class="add-box">
+        <label>Nazwa nowego projektu<input type="text" id="new-project-name" placeholder="np. Regulamin eventu / Zgody — film X"></label>
+        <button class="btn" id="btn-add-project">＋ Dodaj projekt</button>
+      </div>
+      <hr>
+
+      <h3>Konta użytkowników</h3>
+      <p class="tiny muted">👑 Administrator może wszystko. 👤 Pracownik może wyłącznie zbierać zgody w przydzielonych projektach i zmienić własny PIN. Reset PIN-u nie wymaga znajomości starego — klucz danych jest niezależny od PIN-ów.</p>
+      <div id="accounts-list"></div>
+      <div class="add-box">
+        <div class="grid2">
+          <label>Imię i nazwisko<input type="text" id="new-acc-name" placeholder="np. Jan Pracownik"></label>
+          <label>Rola
+            <select id="new-acc-role"><option value="employee">👤 Pracownik</option><option value="admin">👑 Administrator</option></select>
+          </label>
+          <label>PIN (min. 6 cyfr)<input type="password" id="new-acc-pin" inputmode="numeric" autocomplete="off"></label>
+          <label>Powtórz PIN<input type="password" id="new-acc-pin2" inputmode="numeric" autocomplete="off"></label>
+        </div>
+        <p class="error" id="acc-error" hidden></p>
+        <button class="btn" id="btn-add-acc">＋ Utwórz konto</button>
+      </div>
+      <hr>
+
+      <h3>☁ Chmura / serwer kopii</h3>
+      <p class="tiny muted">Kopia całej bazy (zaszyfrowanej E2E — serwer nie widzi danych) wysyłana automatycznie po każdej zmianie. Klucz synchronizacji wyświetla konsola serwera przy starcie.</p>
+      <label>Adres serwera<input type="text" id="sync-url" placeholder="np. https://twoj-serwer.pl lub http://localhost:4290"></label>
+      <label>Klucz synchronizacji<input type="password" id="sync-key" autocomplete="off"></label>
+      <label class="check"><input type="checkbox" id="sync-auto" checked><span>Synchronizuj automatycznie po każdej zmianie</span></label>
+      <label class="check"><input type="checkbox" id="sync-autoemail"><span>Wysyłaj kopię PDF e-mailem automatycznie po podpisaniu (wymaga konfiguracji SMTP na serwerze — plik <code>cloud-data/smtp.json</code>)</span></label>
+      <div class="wnav-mini">
+        <button class="btn primary" id="btn-sync-save" data-help="Zapisuje adres serwera i klucz, po czym od razu wysyła testową kopię, by sprawdzić połączenie.">💾 Zapisz i testuj połączenie</button>
+        <button class="btn" id="btn-sync-now" data-help="Natychmiast wysyła pełną, zaszyfrowaną kopię bazy na serwer.">☁ Synchronizuj teraz</button>
+        <button class="btn" id="btn-sync-restore" data-help="Pobiera listę kopii z serwera (także z innych urządzeń) i pozwala przywrócić wybraną. Zastępuje dane na tym urządzeniu.">⬇ Przywróć z chmury</button>
+      </div>
+      <p id="sync-status" class="tiny muted"></p>
+      <div id="restore-list"></div>
+      <hr>
+
+      <h3>Kolejka kopii dla podpisujących</h3>
+      <div id="outbox-list" class="records"></div>
+      <hr>
+
+      <h3>Dane i kopie lokalne</h3>
+      <div class="wnav-mini">
+        <button class="btn" id="btn-export2">⬇ Eksport do pliku (zaszyfrowany)</button>
+        <button class="btn" id="btn-import">⬆ Przywróć z pliku</button>
+        <input type="file" id="import-file" accept="application/json" hidden>
+      </div>
+      <p class="tiny muted" id="storage-info"></p>
+      <hr>
+    </div>
+
+    <h3>🔑 Mój PIN</h3>
+    <div class="grid2">
+      <label>Nowy PIN (min. 6 cyfr)<input type="password" id="pin-new" inputmode="numeric" autocomplete="off"></label>
+      <label>Powtórz nowy PIN<input type="password" id="pin-new2" inputmode="numeric" autocomplete="off"></label>
+    </div>
+    <p class="error" id="pin-error" hidden></p>
+    <button class="btn" id="btn-change-pin">Zmień mój PIN</button>
+
+    <div class="admin-only">
+      <hr>
+      <h3>Bezpieczeństwo</h3>
+      <ul class="sec-list">
+        <li>🔐 Losowy klucz główny danych (AES-256); PIN każdego konta tylko „opakowuje” klucz (PBKDF2, 310 000 iteracji) — dzięki temu reset PIN-u nie wymaga przeszyfrowania bazy</li>
+        <li>⛔ Narastająca blokada konta po 5 błędnych próbach PIN</li>
+        <li>🔗 Łańcuch integralności SHA-256 (tamper-evident) · 👤 autor każdej zgody odnotowany</li>
+        <li>☁ Kopia w chmurze szyfrowana end-to-end — serwer przechowuje wyłącznie bloby</li>
+        <li>⏱ Auto-wylogowanie po 5 min · 💾 trwała pamięć urządzenia (Storage API)</li>
+        <li>🧾 Kwalifikowany znacznik czasu (eIDAS): <span class="badge planned">do integracji z API TSP</span></li>
+      </ul>
+      <p class="tiny muted">Wersja produkcyjna-kandydat. Przed startem: weryfikacja klauzul przez prawnika; zalecana integracja znacznika czasu eIDAS.</p>
+    </div>
+    <p class="credit">SignOff by Offhand · przygotował Marek Żak dla Offhand Hanna Nobis</p>
+  </main>
+</section>
+
+<canvas id="work-canvas" hidden></canvas>
+
+<script src="vendor/pdf-lib.min.js"></script>
+<script src="vendor/fontkit.umd.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+{
+  "host": "smtp.gmail.com",
+  "port": 465,
+  "user": "twoj-adres@gmail.com",
+  "pass": "haslo-aplikacji-google-16-znakow",
+  "from": "SignOff by Offhand <twoj-adres@gmail.com>"
+}
