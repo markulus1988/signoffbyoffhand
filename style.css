@@ -41,7 +41,17 @@ code { background: #eef2f8; padding: 1px 5px; border-radius: 5px; font-size: .85
 .op-role { font-size: .72rem; color: var(--ink-2); font-weight: 600; opacity: .8; }
 .lock-mark { display: flex; justify-content: center; margin: 26px 0 6px; }
 .lock-mark img { height: 66px; width: auto; }
-.brand-mark-corner { height: 38px; width: auto; margin-left: 8px; flex: 0 0 auto; }
+.brand-mark-corner { height: 34px; width: auto; flex: 0 0 auto; }
+
+/* ---------- wordmark: SignOff + by OFFHAND (zawsze "by" wyśrodkowane pod spodem) ---------- */
+.wordmark { display: inline-flex; flex-direction: column; align-items: center; line-height: 1.02; }
+.wordmark .nm { font-size: 1.7rem; font-weight: 300; letter-spacing: .5px; color: var(--ink); white-space: nowrap; }
+.wordmark .nm b { font-weight: 800; color: var(--amber-dark); }
+.wordmark .by { font-size: .62rem; font-weight: 700; text-transform: uppercase; letter-spacing: .22em; color: var(--ink-2); opacity: .8; margin-top: 1px; }
+.wordmark.sm .nm { font-size: 1.12rem; }
+.wordmark.sm .by { font-size: .5rem; letter-spacing: .18em; }
+.card-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px; }
+.card-head .brand-mark-corner { height: 46px; }
 .rodo-note { background: #eef3fb; border: 1px solid #cfe0f5; border-radius: 10px; padding: 11px 14px; font-size: .9rem; color: #20406a; margin: 4px 0 12px; line-height: 1.5; }
 .proj-rec { background: #fff8ec; border: 1px solid #f3ddb0; border-radius: 10px; padding: 9px 12px; font-size: .82rem; color: #6b5118; margin: 8px 0 4px; }
 .req-pill { display: inline-block; font-size: .72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; padding: 3px 9px; border-radius: 99px; margin-left: 8px; vertical-align: middle; }
@@ -97,9 +107,14 @@ label { font-weight: 600; font-size: .92rem; display: block; margin: 12px 0 0; }
 .topbar {
   display: flex; align-items: center; justify-content: space-between;
   background: var(--card); border-bottom: 1px solid var(--line);
-  padding: 10px 16px; position: sticky; top: 0; z-index: 5;
+  padding: 10px 18px; position: sticky; top: 0; z-index: 5; gap: 14px;
 }
-.topbar-right { display: flex; gap: 6px; align-items: center; }
+.topbar-right { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.topbar-right .badge { display: inline-flex; align-items: center; height: 30px; }
+.topbar-right .btn { min-height: 38px; padding: 7px 14px; }
+.topbar-right #btn-settings { padding: 7px 11px; font-size: 1.1rem; }
+.btn.logout { color: var(--bad); font-weight: 800; border-color: transparent; }
+.btn.logout:hover { background: #fdecea; color: var(--bad); }
 .topbar-title { margin: 0; font-size: 1.1rem; }
 .badge {
   font-size: .75rem; font-weight: 800; padding: 4px 10px; border-radius: 99px;
