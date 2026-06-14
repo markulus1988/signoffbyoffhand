@@ -295,7 +295,8 @@ function enterLogin() {
   $("lock-title").textContent = "Zaloguj się";
   const box = $("account-buttons");
   box.innerHTML = "";
-  for (const acc of S.config.accounts.filter(a => a.active)) {
+  const actives = S.config.accounts.filter(a => a.active);
+  for (const acc of actives) {
     const b = document.createElement("button");
     b.className = "btn op-btn";
     b.innerHTML = `${esc(acc.name)} <span class="op-role">${roleLabel(acc.role)}</span>`;
@@ -306,6 +307,16 @@ function enterLogin() {
       $("lock-pin").focus();
     });
     box.appendChild(b);
+  }
+  // jedno konto — zaznacz je automatycznie, kursor od razu w PIN
+  if (actives.length === 1) {
+    accSelected = actives[0];
+    box.firstElementChild.classList.add("primary");
+    $("login-hint").textContent = "Podaj PIN, aby się zalogować.";
+    $("account-buttons").hidden = false;
+    setTimeout(() => $("lock-pin").focus(), 60);
+  } else {
+    $("login-hint").textContent = "Dotknij swoje konto i podaj PIN.";
   }
   show("view-lock");
 }
