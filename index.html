@@ -49,6 +49,8 @@
 <!-- ===== EKRAN: LOGOWANIE ===== -->
 <section id="view-lock" class="view" hidden>
   <div class="lock-card">
+    <div class="logo"><span>Sign<b>Off</b></span></div>
+    <div class="brand-by under">by OFFHAND</div>
     <h1 id="lock-title">Zaloguj się</h1>
     <p class="muted">Wybierz konto i podaj PIN.</p>
     <div id="account-buttons" class="op-buttons"></div>
@@ -56,10 +58,7 @@
     <p id="lock-error" class="error" hidden></p>
     <button class="btn primary big" id="btn-unlock">Zaloguj</button>
     <p class="tiny muted">Tryb offline ✓ · AES-256-GCM ✓ · Blokada po 5 błędnych próbach ✓ · Kopia w chmurze E2E ✓</p>
-    <div class="lock-logo">
-      <img class="brand-mark-lg" src="icons/offhand-logo.svg" alt="Offhand">
-      <div class="lock-logo-text"><span class="logo-word">Sign<b>Off</b></span><span class="brand-by">by OFFHAND</span></div>
-    </div>
+    <div class="lock-mark"><img src="icons/offhand-logo.svg" alt="Offhand"></div>
     <p class="credit">przygotował Marek Żak · dla Offhand Hanna Nobis</p>
   </div>
 </section>
@@ -67,14 +66,15 @@
 <!-- ===== EKRAN: GŁÓWNY ===== -->
 <section id="view-home" class="view" hidden>
   <header class="topbar">
+    <div class="brand-top"><div class="logo small"><span>Sign<b>Off</b></span></div><span class="brand-by inline">by OFFHAND</span></div>
     <div class="topbar-right">
       <span id="user-badge" class="badge planned" data-help="Zalogowany użytkownik i jego rola. Administrator ma pełne uprawnienia; pracownik i „inne” mogą wyłącznie zbierać zgody."></span>
       <span id="sync-badge" class="badge offline" data-help="Stan kopii w chmurze. Godzina = ostatnia udana synchronizacja; „oczekuje” = wyśle przy najbliższym połączeniu.">☁ —</span>
       <span id="net-status" class="badge offline" data-help="Stan połączenia z internetem. Aplikacja działa w pełni offline — zgody zbiera się bez sieci.">offline</span>
       <button class="btn ghost" id="btn-settings" data-help="Ustawienia: projekty, dokumenty, konta, chmura (administrator) oraz zmiana własnego PIN.">⚙</button>
       <button class="btn ghost" id="btn-lock" data-help="Wylogowanie i zaszyfrowanie danych. Następna osoba musi podać swój PIN.">🔒 Wyloguj</button>
+      <img class="brand-mark-corner" src="icons/offhand-logo.svg" alt="Offhand">
     </div>
-    <div class="brand-top right"><div class="logo small"><img class="brand-mark" src="icons/offhand-logo.svg" alt="Offhand"><span>Sign<b>Off</b></span></div><span class="brand-by inline">by OFFHAND</span></div>
   </header>
   <main class="container">
     <div class="home-head">

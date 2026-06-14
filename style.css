@@ -37,15 +37,11 @@ code { background: #eef2f8; padding: 1px 5px; border-radius: 5px; font-size: .85
 .logo { font-size: 1.7rem; font-weight: 300; letter-spacing: .5px; margin-bottom: 8px; display: inline-flex; align-items: center; }
 .logo b { font-weight: 800; color: var(--amber-dark); }
 .logo.small { font-size: 1.15rem; margin-bottom: 0; }
-.brand-mark { height: 1.45em; width: auto; margin-right: .42em; flex: 0 0 auto; }
 .lock-card .logo { justify-content: center; }
 .op-role { font-size: .72rem; color: var(--ink-2); font-weight: 600; opacity: .8; }
-.lock-logo { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 28px 0 8px; }
-.lock-logo-text { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.05; }
-.lock-logo-text .brand-by { margin-top: 2px; }
-.brand-mark-lg { height: 54px; width: auto; }
-.logo-word { font-size: 1.5rem; font-weight: 300; letter-spacing: .5px; color: var(--ink); }
-.logo-word b { font-weight: 800; color: var(--amber-dark); }
+.lock-mark { display: flex; justify-content: center; margin: 26px 0 6px; }
+.lock-mark img { height: 66px; width: auto; }
+.brand-mark-corner { height: 38px; width: auto; margin-left: 8px; flex: 0 0 auto; }
 .rodo-note { background: #eef3fb; border: 1px solid #cfe0f5; border-radius: 10px; padding: 11px 14px; font-size: .9rem; color: #20406a; margin: 4px 0 12px; line-height: 1.5; }
 .proj-rec { background: #fff8ec; border: 1px solid #f3ddb0; border-radius: 10px; padding: 9px 12px; font-size: .82rem; color: #6b5118; margin: 8px 0 4px; }
 .req-pill { display: inline-block; font-size: .72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; padding: 3px 9px; border-radius: 99px; margin-left: 8px; vertical-align: middle; }
@@ -57,9 +53,7 @@ code { background: #eef2f8; padding: 1px 5px; border-radius: 5px; font-size: .85
 }
 .brand-by.under { margin: -6px 0 10px; }
 .brand-top { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.1; }
-.brand-top.right { align-items: flex-end; }
-.brand-by.inline { font-size: .58rem; margin-left: 28px; margin-top: 1px; }
-.brand-top.right .brand-by.inline { margin-left: 0; margin-right: 2px; }
+.brand-by.inline { font-size: .58rem; margin-left: 2px; margin-top: 1px; }
 .credit {
   margin-top: 22px; font-size: .7rem; color: var(--ink-2); opacity: .55;
   letter-spacing: .04em; font-style: italic;
