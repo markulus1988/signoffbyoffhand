@@ -72,17 +72,18 @@ function api(req, res, url) {
     req.on("data", (c) => { size += c.length; if (size > MAX_BODY) { req.destroy(); return; } body += c; });
     req.on("end", () => {
       try {
-        const { to, subject, text, filename, pdfBase64 } = JSON.parse(body);
-        if (!to || !pdfBase64) return json(400, { error: "Brak adresata lub pliku." });
-        const cfg = smtpConfig();
-        if (!cfg) return json(501, { error: "E-mail nieskonfigurowany — ustaw zmienne SMTP_HOST/SMTP_USER/SMTP_PASS (lub plik cloud-data/smtp.json)." });
+        const { to, subject, text, filename, pdfBase64, smtp } = JSON.parse(body);
+        if (!to) return json(400, { error: "Brak adresata." });
+        // dane nadawcy: najpierw z aplikacji (wpisane przez administratora), w ostateczności z serwera
+        const cfg = (smtp && smtp.host && smtp.user && smtp.pass) ? smtp : smtpConfig();
+        if (!cfg) return json(501, { error: "Brak konfiguracji nadawcy — uzupełnij e-mail i hasło w aplikacji (Ustawienia → Wysyłka e-mail)." });
         let nodemailer;
         try { nodemailer = require("nodemailer"); } catch { return json(501, { error: "Brak modułu nodemailer — uruchom: npm install" }); }
-        const tr = nodemailer.createTransport({ host: cfg.host, port: cfg.port, secure: cfg.port === 465, auth: { user: cfg.user, pass: cfg.pass } });
-        tr.sendMail({
-          from: cfg.from || cfg.user, to, subject: subject || "Kopia podpisanej zgody",
-          text: text || "", attachments: [{ filename: filename || "zgoda.pdf", content: Buffer.from(pdfBase64, "base64") }],
-        }).then(() => json(200, { ok: true })).catch(e => json(500, { error: "SMTP: " + e.message }));
+        const port = Number(cfg.port) || 465;
+        const tr = nodemailer.createTransport({ host: cfg.host, port, secure: port === 465, auth: { user: cfg.user, pass: cfg.pass } });
+        const mail = { from: cfg.from || cfg.user, to, subject: subject || "Kopia podpisanej zgody", text: text || "" };
+        if (pdfBase64) mail.attachments = [{ filename: filename || "zgoda.pdf", content: Buffer.from(pdfBase64, "base64") }];
+        tr.sendMail(mail).then(() => json(200, { ok: true })).catch(e => json(500, { error: "Poczta odrzuciła wysyłkę: " + e.message }));
       } catch (e) { json(400, { error: "Błędne dane: " + e.message }); }
     });
     return;

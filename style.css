@@ -41,6 +41,8 @@ code { background: #eef2f8; padding: 1px 5px; border-radius: 5px; font-size: .85
 .lock-card .logo { justify-content: center; }
 .op-role { font-size: .72rem; color: var(--ink-2); font-weight: 600; opacity: .8; }
 .lock-logo { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 28px 0 8px; }
+.lock-logo-text { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.05; }
+.lock-logo-text .brand-by { margin-top: 2px; }
 .brand-mark-lg { height: 54px; width: auto; }
 .logo-word { font-size: 1.5rem; font-weight: 300; letter-spacing: .5px; color: var(--ink); }
 .logo-word b { font-weight: 800; color: var(--amber-dark); }

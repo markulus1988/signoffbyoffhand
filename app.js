@@ -489,6 +489,28 @@ $("import-file").addEventListener("change", async (e) => {
 
 /* --- synchronizacja z chmurą (E2E — wysyłamy wyłącznie zaszyfrowane pakiety) --- */
 function syncCfg() { return (S.vault && S.vault.sync) || { url: "", key: "", auto: true }; }
+function mailCfg() { return (S.vault && S.vault.mail) || null; }
+function smtpAutodetect(email) {
+  const dom = (String(email).split("@")[1] || "").toLowerCase();
+  const map = {
+    "gmail.com": ["smtp.gmail.com", 465], "googlemail.com": ["smtp.gmail.com", 465],
+    "outlook.com": ["smtp-mail.outlook.com", 587], "hotmail.com": ["smtp-mail.outlook.com", 587],
+    "live.com": ["smtp-mail.outlook.com", 587], "office365.com": ["smtp.office365.com", 587],
+    "yahoo.com": ["smtp.mail.yahoo.com", 465],
+    "wp.pl": ["smtp.wp.pl", 465], "o2.pl": ["poczta.o2.pl", 465], "tlen.pl": ["smtp.wp.pl", 465],
+    "interia.pl": ["poczta.interia.pl", 587], "onet.pl": ["smtp.poczta.onet.pl", 465],
+    "op.pl": ["smtp.poczta.onet.pl", 465], "poczta.onet.pl": ["smtp.poczta.onet.pl", 465], "gazeta.pl": ["smtp.gazeta.pl", 465],
+  };
+  return map[dom] || null;
+}
+function buildSmtp() {
+  const m = mailCfg();
+  if (!m || !m.email || !m.pass) return null;
+  let host = (m.host || "").trim(), port = m.port;
+  if (!host) { const a = smtpAutodetect(m.email); if (a) { host = a[0]; if (!port) port = a[1]; } }
+  if (!host) return null;
+  return { host, port: Number(port) || 465, user: m.email, pass: m.pass, from: (m.from ? `${m.from} <${m.email}>` : m.email) };
+}
 function updateSyncBadge(msg) {
   const b = $("sync-badge");
   const c = syncCfg();
@@ -786,48 +808,55 @@ async function startCamera() {
     $("cam-placeholder").hidden = true; $("cam-photo").hidden = true;
     $("btn-cam-start").hidden = true; $("btn-cam-shot").hidden = false; $("btn-cam-retake").hidden = true;
   } catch (e) {
-    showCameraHelp(e && e.name ? e.name : "Error");
+    const name = e && e.name ? e.name : "Error";
+    if (name === "NotAllowedError" || name === "SecurityError" || name === "PermissionDeniedError") {
+      let state = "denied";
+      try { if (navigator.permissions && navigator.permissions.query) { const p = await navigator.permissions.query({ name: "camera" }); state = p.state; } } catch {}
+      showCameraHelp(state === "prompt" ? "prompt" : "denied");
+    } else { showCameraHelp(name); }
   }
 }
 $("btn-cam-start").addEventListener("click", startCamera);
-function showCameraHelp(errName) {
+function showCameraHelp(mode) {
   document.getElementById("cam-help") && document.getElementById("cam-help").remove();
   const os = detectOS();
-  const noCam = errName === "NotFoundError" || errName === "DevicesNotFoundError" || errName === "OverconstrainedError";
-  const unsupported = errName === "Unsupported" || errName === "NotSupportedError";
-  let title, steps;
-  if (unsupported) {
+  let title, intro, steps = "";
+  if (mode === "prompt") {
+    title = "Pozwól na dostęp do aparatu";
+    intro = "Telefon zaraz sam zapyta o dostęp do aparatu. Dotknij <b>Zezwól</b> (albo „OK”) — to wszystko.";
+    steps = `<li>Dotknij <b>Spróbuj ponownie</b>.</li><li>Gdy pojawi się pytanie telefonu — wybierz <b>Zezwól</b>.</li>`;
+  } else if (mode === "Unsupported" || mode === "NotSupportedError") {
     title = "Aparat niedostępny w tym oknie";
-    steps = `<li>Otwórz aplikację z <b>ikony na ekranie głównym</b> telefonu (nie z linku w wiadomości czy mailu).</li><li>Sprawdź, czy adres zaczyna się od <b>https://</b>.</li><li>Dotknij <b>Spróbuj ponownie</b>.</li>`;
-  } else if (noCam) {
+    intro = "Otwórz aplikację z <b>ikony na ekranie głównym</b> telefonu (nie z linku w wiadomości), pod adresem zaczynającym się od <b>https://</b>.";
+    steps = `<li>Dotknij <b>Spróbuj ponownie</b>.</li>`;
+  } else if (mode === "NotFoundError" || mode === "DevicesNotFoundError" || mode === "OverconstrainedError") {
     title = "Nie znaleziono aparatu";
-    steps = `<li>Aparat może być zajęty przez inną aplikację — zamknij np. Aparat, Zoom, Instagram.</li><li>Dotknij <b>Spróbuj ponownie</b>.</li><li>Jeśli to urządzenie nie ma aparatu, a zdjęcie nie jest wymagane — możesz je pominąć.</li>`;
-  } else if (os === "ios") {
-    title = "Pozwól na aparat (iPhone / iPad)";
-    steps = `<li>Wyjdź na ekran główny i otwórz <b>Ustawienia</b> (szara ikona z kółkami zębatymi).</li>
-      <li>Przewiń w dół do pozycji <b>SignOff</b> i dotknij jej.</li>
-      <li>Dotknij <b>Aparat</b> — przełącznik ma zrobić się <b>zielony</b>.</li>
-      <li>Wróć do SignOff i dotknij <b>Spróbuj ponownie</b>.</li>
-      <li class="muted">Jeśli używasz w Safari bez instalacji: Ustawienia → Safari → Aparat → Zezwól.</li>`;
-  } else if (os === "android") {
-    title = "Pozwól na aparat (Android)";
-    steps = `<li><b>Przytrzymaj palcem</b> ikonę SignOff na ekranie → dotknij <b>ⓘ Informacje o aplikacji</b>.</li>
-      <li>Dotknij <b>Uprawnienia</b>, a potem <b>Aparat</b>.</li>
-      <li>Wybierz <b>Zezwalaj</b>.</li>
-      <li>Wróć do SignOff i dotknij <b>Spróbuj ponownie</b>.</li>
-      <li class="muted">Możesz też dotknąć ikony <b>🔒 kłódki</b> obok adresu → Uprawnienia → Aparat → Zezwól.</li>`;
-  } else {
-    title = "Pozwól na aparat";
-    steps = `<li>Kliknij ikonę <b>kłódki</b> lub <b>aparatu</b> w pasku adresu przeglądarki.</li>
-      <li>Ustaw dostęp do <b>aparatu</b> na <b>Zezwól</b>.</li>
-      <li>Kliknij <b>Spróbuj ponownie</b>.</li>`;
+    intro = "Aparat może być zajęty przez inną aplikację (np. Aparat, Zoom, Instagram) — zamknij ją.";
+    steps = `<li>Dotknij <b>Spróbuj ponownie</b>.</li><li>Jeśli urządzenie nie ma aparatu, a zdjęcie nie jest wymagane — możesz je pominąć.</li>`;
+  } else { // denied — telefon nie zapyta ponownie, trzeba włączyć w ustawieniach
+    intro = "Dostęp do aparatu został wcześniej odrzucony, więc telefon już o niego nie zapyta. Trzeba <b>raz</b> go włączyć — to zajmie chwilę:";
+    if (os === "ios") {
+      title = "Włącz aparat w ustawieniach (iPhone / iPad)";
+      steps = `<li>Otwórz <b>Ustawienia</b> telefonu → znajdź <b>SignOff</b>.</li>
+        <li>Dotknij <b>Aparat</b>, aż przełącznik będzie <b>zielony</b>.</li>
+        <li>Wróć tu i dotknij <b>Spróbuj ponownie</b>.</li>`;
+    } else if (os === "android") {
+      title = "Włącz aparat w ustawieniach (Android)";
+      steps = `<li>Dotknij ikony <b>🔒 / ⓘ</b> obok adresu na górze ekranu (albo przytrzymaj ikonę SignOff → <b>Informacje o aplikacji</b>).</li>
+        <li>Wejdź w <b>Uprawnienia → Aparat</b> i wybierz <b>Zezwalaj</b>.</li>
+        <li>Wróć tu i dotknij <b>Spróbuj ponownie</b>.</li>`;
+    } else {
+      title = "Włącz aparat w przeglądarce";
+      steps = `<li>Kliknij ikonę <b>kłódki / aparatu</b> w pasku adresu i ustaw aparat na <b>Zezwól</b>.</li>
+        <li>Kliknij <b>Spróbuj ponownie</b>.</li>`;
+    }
   }
   const ov = document.createElement("div");
   ov.id = "cam-help"; ov.className = "cam-help";
   ov.innerHTML = `<div class="cam-help-card">
     <div class="cam-help-icon">📷</div>
     <h3>${title}</h3>
-    <p class="muted tiny">Ze względów bezpieczeństwa telefon nie pozwala aplikacji samej włączyć aparatu — trzeba zezwolić raz, ręcznie. Potem telefon zapamięta zgodę.</p>
+    <p class="muted">${intro}</p>
     <ol class="cam-steps">${steps}</ol>
     <div class="cam-help-actions">
       <button class="btn primary big" id="cam-retry">Spróbuj ponownie</button>
@@ -942,6 +971,7 @@ async function serverEmail(r) {
         text: `Dzień dobry,\n\nw załączeniu kopia zgody podpisanej w dniu ${new Date(r.createdAt).toLocaleString("pl-PL")}.\nID dokumentu: ${r.id}\nSHA-256: ${r.hash}\n\nPozdrawiamy,\n${r.producer}`,
         filename: `zgoda-${r.person.last}-${r.person.first}.pdf`.toLowerCase().replace(/\s+/g, "-"),
         pdfBase64: b64.enc(bytes),
+        smtp: buildSmtp(),
       }),
     });
     if (!resp.ok) return false;
@@ -1069,6 +1099,10 @@ function enterSettings() {
     $("sync-autoemail").checked = !!c.autoEmail;
     $("sync-status").textContent = S.config.lastSync ? "Ostatnia synchronizacja: " + new Date(S.config.lastSync).toLocaleString("pl-PL") : "Jeszcze nie synchronizowano.";
     $("restore-list").innerHTML = "";
+    const m = mailCfg() || {};
+    $("mail-email").value = m.email || ""; $("mail-pass").value = m.pass || "";
+    $("mail-from").value = m.from || ""; $("mail-host").value = m.host || ""; $("mail-port").value = m.port || "";
+    $("mail-status").textContent = "";
     renderProjects(); renderAccounts(); renderOutbox(); renderStorageInfo();
   }
   show("view-settings");
@@ -1079,6 +1113,43 @@ $("btn-set-save").addEventListener("click", async () => {
   S.vault.email = $("set-email").value.trim();
   await saveVault();
   enterHome();
+});
+
+/* --- konfiguracja nadawcy e-mail (administrator) --- */
+function smtpFromFields() {
+  const email = $("mail-email").value.trim(), pass = $("mail-pass").value;
+  if (!email || !pass) return null;
+  let host = $("mail-host").value.trim(), port = $("mail-port").value.trim();
+  if (!host) { const a = smtpAutodetect(email); if (a) { host = a[0]; if (!port) port = a[1]; } }
+  if (!host) return null;
+  const from = $("mail-from").value.trim();
+  return { host, port: Number(port) || 465, user: email, pass, from: from ? `${from} <${email}>` : email };
+}
+$("btn-mail-save").addEventListener("click", async () => {
+  const st = $("mail-status");
+  const email = $("mail-email").value.trim();
+  if (email && !isValidEmail(email)) { st.textContent = "⚠ Adres e-mail nadawcy wygląda niepoprawnie."; return; }
+  S.vault.mail = { email, pass: $("mail-pass").value, from: $("mail-from").value.trim(), host: $("mail-host").value.trim(), port: $("mail-port").value.trim() };
+  await saveVault();
+  if (!email) { st.textContent = "Wyczyszczono dane nadawcy."; return; }
+  const auto = smtpAutodetect(email);
+  st.textContent = `✅ Zapisano nadawcę: ${email}` + (auto ? ` · serwer wykryty: ${auto[0]}` : ($("mail-host").value.trim() ? "" : " · nieznany dostawca — uzupełnij serwer w ustawieniach zaawansowanych"));
+});
+$("btn-mail-test").addEventListener("click", async () => {
+  const st = $("mail-status");
+  const c = syncCfg(), smtp = smtpFromFields(), to = $("mail-email").value.trim();
+  if (!smtp) { st.textContent = "🛑 Uzupełnij adres e-mail i hasło nadawcy."; return; }
+  if (!c.url || !c.key) { st.textContent = "🛑 Najpierw skonfiguruj serwer (☁ Chmura powyżej) — to on wysyła pocztę."; return; }
+  if (!navigator.onLine) { st.textContent = "🛑 Brak internetu — test wymaga połączenia."; return; }
+  st.textContent = "Wysyłam testową wiadomość…";
+  try {
+    const resp = await fetch(c.url.replace(/\/+$/, "") + "/api/email", {
+      method: "POST", headers: { "Content-Type": "application/json", "X-Sync-Key": c.key },
+      body: JSON.stringify({ to, subject: "SignOff — test wysyłki", text: "To jest testowa wiadomość z aplikacji SignOff by Offhand. Jeśli ją widzisz, automatyczna wysyłka kopii zgód działa.", smtp }),
+    });
+    const out = await resp.json().catch(() => ({}));
+    st.textContent = resp.ok ? `✅ Wysłano test na ${to}. Sprawdź skrzynkę (zajrzyj też do SPAM-u).` : "🛑 " + (out.error || ("Błąd " + resp.status));
+  } catch (e) { st.textContent = "🛑 Błąd połączenia z serwerem: " + e.message; }
 });
 
 /* --- projekty --- */

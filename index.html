@@ -58,7 +58,7 @@
     <p class="tiny muted">Tryb offline ✓ · AES-256-GCM ✓ · Blokada po 5 błędnych próbach ✓ · Kopia w chmurze E2E ✓</p>
     <div class="lock-logo">
       <img class="brand-mark-lg" src="icons/offhand-logo.svg" alt="Offhand">
-      <span class="logo-word">Sign<b>Off</b></span>
+      <div class="lock-logo-text"><span class="logo-word">Sign<b>Off</b></span><span class="brand-by">by OFFHAND</span></div>
     </div>
     <p class="credit">przygotował Marek Żak · dla Offhand Hanna Nobis</p>
   </div>
@@ -270,7 +270,7 @@
       <label>Adres serwera<input type="text" id="sync-url" placeholder="np. https://twoj-serwer.pl lub http://localhost:4290"></label>
       <label>Klucz synchronizacji<input type="password" id="sync-key" autocomplete="off"></label>
       <label class="check"><input type="checkbox" id="sync-auto" checked><span>Synchronizuj automatycznie po każdej zmianie</span></label>
-      <label class="check"><input type="checkbox" id="sync-autoemail"><span>Wysyłaj kopię PDF e-mailem automatycznie po podpisaniu (wymaga konfiguracji SMTP na serwerze — plik <code>cloud-data/smtp.json</code>)</span></label>
+      <label class="check"><input type="checkbox" id="sync-autoemail"><span>Wysyłaj kopię PDF e-mailem automatycznie po podpisaniu (skonfiguruj nadawcę niżej w „✉ Wysyłka e-mail”)</span></label>
       <div class="wnav-mini">
         <button class="btn primary" id="btn-sync-save" data-help="Zapisuje adres serwera i klucz, po czym od razu wysyła testową kopię, by sprawdzić połączenie.">💾 Zapisz i testuj połączenie</button>
         <button class="btn" id="btn-sync-now" data-help="Natychmiast wysyła pełną, zaszyfrowaną kopię bazy na serwer.">☁ Synchronizuj teraz</button>
@@ -278,6 +278,22 @@
       </div>
       <p id="sync-status" class="tiny muted"></p>
       <div id="restore-list"></div>
+      <hr>
+
+      <h3>✉ Wysyłka e-mail do podpisujących</h3>
+      <p class="tiny muted">Kopie zgód wychodzą z adresu, który tu podasz. Wpisz e-mail i hasło — serwer i port aplikacja ustawi sama. Wymaga skonfigurowanego serwera powyżej (☁ Chmura) — to on wysyła w imieniu aplikacji.</p>
+      <div class="rodo-note"><b>Ważne — Gmail, Outlook, WP, Onet itp.:</b> nie wpisuj zwykłego hasła do logowania (zostanie odrzucone). Trzeba wygenerować <b>„hasło aplikacji”</b>. Dla Gmaila: Konto Google → Bezpieczeństwo → włącz <b>weryfikację dwuetapową</b> → <b>Hasła aplikacji</b> → utwórz i wklej tutaj 16 znaków.</div>
+      <label>Adres e-mail nadawcy<input type="email" id="mail-email" autocomplete="off" placeholder="np. zgody@offhand.pl lub twoj@gmail.com"></label>
+      <label>Hasło (dla Gmaila/Outlooka: „hasło aplikacji”)<input type="password" id="mail-pass" autocomplete="off" placeholder="••••••••••••"></label>
+      <label>Nazwa nadawcy widoczna u odbiorcy (opcjonalnie)<input type="text" id="mail-from" autocomplete="off" placeholder="np. Offhand — zgody"></label>
+      <details class="adv"><summary class="tiny muted">Ustawienia zaawansowane (serwer SMTP / port — zwykle nie trzeba)</summary>
+        <div class="grid2"><label>Serwer SMTP<input type="text" id="mail-host" placeholder="auto-wykryty z adresu"></label><label>Port<input type="text" id="mail-port" inputmode="numeric" placeholder="auto (465/587)"></label></div>
+      </details>
+      <div class="wnav-mini">
+        <button class="btn primary" id="btn-mail-save" data-help="Zapisuje dane nadawcy (zaszyfrowane). Serwer i port są wykrywane automatycznie z adresu e-mail.">💾 Zapisz nadawcę</button>
+        <button class="btn" id="btn-mail-test" data-help="Wysyła testową wiadomość na Twój własny adres, by sprawdzić, czy wysyłka działa.">✉ Wyślij test do siebie</button>
+      </div>
+      <p id="mail-status" class="tiny muted"></p>
       <hr>
 
       <h3>Kolejka kopii dla podpisujących</h3>
