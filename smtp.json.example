@@ -1,4 +1,5 @@
 {
+  "_komentarz": "Tylko tryb LOKALNY (START.bat). Skopiuj do cloud-data/smtp.json i uzupełnij. Na hostingu Render użyj zmiennych SMTP_HOST/SMTP_PORT/SMTP_USER/SMTP_PASS/SMTP_FROM. Gmail: włącz weryfikację dwuetapową i wygeneruj 'hasło aplikacji' (16 znaków) jako pass.",
   "host": "smtp.gmail.com",
   "port": 465,
   "user": "twoj-adres@gmail.com",

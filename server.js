@@ -20,6 +20,23 @@ const MIME = { ".html": "text/html; charset=utf-8", ".css": "text/css", ".js": "
 const MAX_BODY = 100 * 1024 * 1024; // 100 MB
 const safeId = (s) => /^[a-zA-Z0-9-]{1,64}$/.test(s || "");
 
+/* Konfiguracja SMTP — najpierw ze zmiennych środowiskowych (działa na darmowym hostingu,
+   przetrwa restart), w ostateczności z pliku cloud-data/smtp.json (tryb lokalny). */
+function smtpConfig() {
+  if (process.env.SMTP_HOST) {
+    return {
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT || 465),
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+    };
+  }
+  const smtpFile = path.join(DATA, "smtp.json");
+  if (fs.existsSync(smtpFile)) return JSON.parse(fs.readFileSync(smtpFile, "utf8"));
+  return null;
+}
+
 function api(req, res, url) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Sync-Key");
@@ -57,11 +74,10 @@ function api(req, res, url) {
       try {
         const { to, subject, text, filename, pdfBase64 } = JSON.parse(body);
         if (!to || !pdfBase64) return json(400, { error: "Brak adresata lub pliku." });
-        const smtpFile = path.join(DATA, "smtp.json");
-        if (!fs.existsSync(smtpFile)) return json(501, { error: "E-mail nieskonfigurowany — utwórz cloud-data/smtp.json (wzór: smtp.json.example)." });
+        const cfg = smtpConfig();
+        if (!cfg) return json(501, { error: "E-mail nieskonfigurowany — ustaw zmienne SMTP_HOST/SMTP_USER/SMTP_PASS (lub plik cloud-data/smtp.json)." });
         let nodemailer;
         try { nodemailer = require("nodemailer"); } catch { return json(501, { error: "Brak modułu nodemailer — uruchom: npm install" }); }
-        const cfg = JSON.parse(fs.readFileSync(smtpFile, "utf8"));
         const tr = nodemailer.createTransport({ host: cfg.host, port: cfg.port, secure: cfg.port === 465, auth: { user: cfg.user, pass: cfg.pass } });
         tr.sendMail({
           from: cfg.from || cfg.user, to, subject: subject || "Kopia podpisanej zgody",

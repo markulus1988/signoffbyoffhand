@@ -26,16 +26,27 @@ Przy pierwszym uruchomieniu aplikacja poprosi o nazwę firmy, pierwszy projekt i
 - **👤 Pracownik**: tylko zbieranie zgód w przydzielonych projektach i zmiana własnego PIN.
 - Reset zapomnianego PIN-u: admin → Ustawienia → Konta → **🔑 Reset PIN** (stary PIN niepotrzebny).
 
-## 4. Serwer chmury (kopie + e-maile)
+## 4. Serwer w chmurze (automatyczne e-maile + kopie) — za darmo
 
-Aplikacja działa bez serwera, ale serwer daje: automatyczną kopię każdej zmiany, odtwarzanie po utracie urządzenia i automatyczne e-maile z PDF-em.
+Serwer daje dwie rzeczy: **automatyczne e-maile** z PDF-em do osoby podpisującej oraz automatyczną kopię danych poza urządzeniem. Aplikacja działa też bez niego.
 
-**Na komputerze w biurze:** uruchom `START.bat` — konsola pokaże adres i **klucz synchronizacji**.
-**W internecie (zalecane):** załóż darmowe konto na [render.com](https://render.com) → „New Web Service" → wskaż repozytorium GitHub `signoffbyoffhand` → Start Command: `node server.js` → po chwili dostajesz adres `https://signoffbyoffhand.onrender.com`. Klucz synchronizacji znajdziesz w logach serwera (zakładka Logs).
+### 4a. Wdrożenie na Render (darmowy plan, ~10 min — robi Marek raz)
+1. Załóż darmowe konto na [render.com](https://render.com) (logowanie przez GitHub).
+2. **New +** → **Blueprint** → wskaż repozytorium `markulus1988/signoffbyoffhand`. Render sam odczyta plik `render.yaml`.
+3. Render poprosi o uzupełnienie zmiennych e-mail (sekrety). Dla Gmaila:
+   - `SMTP_HOST` = `smtp.gmail.com`, `SMTP_PORT` = `465`
+   - `SMTP_USER` = Twój adres Gmail
+   - `SMTP_PASS` = **„hasło aplikacji"** Google (Konto Google → Bezpieczeństwo → włącz weryfikację dwuetapową → „Hasła aplikacji" → wygeneruj 16 znaków)
+   - `SMTP_FROM` = `SignOff by Offhand <twoj-adres@gmail.com>`
+   - `SYNC_KEY` Render wygeneruje sam — skopiuj go z zakładki **Environment**.
+4. Po chwili dostajesz adres typu `https://signoffbyoffhand.onrender.com`.
+5. W aplikacji (na każdym urządzeniu): Ustawienia → **☁ Chmura** → wpisz ten adres i `SYNC_KEY` → „Zapisz i testuj". Zaznacz „Wysyłaj kopię PDF e-mailem automatycznie".
 
-W aplikacji: Ustawienia → **☁ Chmura** → wpisz adres serwera i klucz → „Zapisz i testuj połączenie".
-
-**E-maile automatyczne:** na serwerze utwórz plik `cloud-data/smtp.json` (wzór: `smtp.json.example`; dla Gmaila wygeneruj „hasło aplikacji" w ustawieniach konta Google). Potem w aplikacji zaznacz „Wysyłaj kopię PDF e-mailem automatycznie".
+### 4b. Ile to realnie kosztuje
+- **E-maile: darmowe.** Gmail wysyła do ~500/dobę bez opłat (na potrzeby zgód to bardzo dużo). Alternatywa: darmowy [Resend](https://resend.com) (3000 e-maili/mies.) — wtedy `SMTP_HOST` = `smtp.resend.com`.
+- **Serwer: darmowy plan Render** wystarcza. Dwie rzeczy do wiedzy: po 15 min bezczynności usypia (pierwsze połączenie po przerwie trwa ~minutę), oraz **darmowy dysk jest kasowany przy restarcie** — dlatego automatyczne kopie na serwerze traktuj jako wygodę, a nie jedyne zabezpieczenie.
+- **Trwała kopia za darmo** (zalecane niezależnie od serwera): Ustawienia → „⬇ Kopia zapasowa" → zapisz plik do iCloud / Dysku Google. Plik jest zaszyfrowany — bez PIN-u bezużyteczny. Najlepiej raz dziennie po pracy.
+- Pełna, automatyczna i trwała kopia na serwerze wymaga płatnego dysku Render (~7 USD/mies.) — opcjonalnie, w przyszłości.
 
 ## 5. Utrata / wymiana urządzenia
 

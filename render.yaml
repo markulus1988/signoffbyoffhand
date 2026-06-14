@@ -1,0 +1,24 @@
+# SignOff by Offhand — plan wdrożenia na Render (darmowy plan).
+# Render odczyta ten plik automatycznie: New + → "Blueprint" → wskaż repozytorium.
+# Sekrety (hasło SMTP) ustawia się ręcznie w panelu Render — nie trzymamy ich w repo.
+services:
+  - type: web
+    name: signoffbyoffhand
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /index.html
+    envVars:
+      - key: SYNC_KEY          # klucz synchronizacji — Render wygeneruje losowy i stały
+        generateValue: true
+      - key: SMTP_HOST         # np. smtp.gmail.com  (lub smtp.resend.com)
+        sync: false
+      - key: SMTP_PORT
+        value: "465"
+      - key: SMTP_USER         # Twój adres e-mail / login SMTP
+        sync: false
+      - key: SMTP_PASS         # „hasło aplikacji" (Gmail) lub klucz API — ustaw w panelu, nie w repo
+        sync: false
+      - key: SMTP_FROM         # np. SignOff by Offhand <twoj-adres@gmail.com>
+        sync: false
