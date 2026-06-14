@@ -1,0 +1,10 @@
+<svg viewBox="0 0 680 744" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="OFFHAND">
+  <g fill="currentColor">
+    <rect x="10" y="10" width="660" height="724" fill="none" stroke="currentColor" stroke-width="18"/>
+    <rect x="442" y="10" width="16" height="724"/>
+    <rect x="10" y="442" width="448" height="16"/>
+    <circle cx="226" cy="226" r="150" fill="none" stroke="currentColor" stroke-width="56"/>
+    <text x="232" y="672" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="900" font-size="290" letter-spacing="-6">FF</text>
+    <text x="564" y="372" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="900" font-size="172" letter-spacing="10" transform="rotate(90 564 372)">HAND</text>
+  </g>
+</svg>

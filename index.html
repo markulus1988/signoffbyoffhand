@@ -18,7 +18,7 @@
 <!-- ===== EKRAN: PIERWSZE URUCHOMIENIE ===== -->
 <section id="view-setup" class="view" hidden>
   <div class="lock-card">
-    <div class="logo">🎬 <span>Sign<b>Off</b></span></div>
+    <div class="logo"><img class="brand-mark" src="icons/offhand-logo.svg" alt="Offhand"><span>Sign<b>Off</b></span></div>
     <div class="brand-by under">by OFFHAND</div>
     <h1>Pierwsza konfiguracja</h1>
     <p class="muted">Tworzone są konta administratorów. Dane szyfrowane na urządzeniu (AES-256-GCM). <strong>PIN-y nie są nigdzie zapisywane w postaci jawnej.</strong></p>
@@ -49,7 +49,7 @@
 <!-- ===== EKRAN: LOGOWANIE ===== -->
 <section id="view-lock" class="view" hidden>
   <div class="lock-card">
-    <div class="logo">🎬 <span>Sign<b>Off</b></span></div>
+    <div class="logo"><img class="brand-mark" src="icons/offhand-logo.svg" alt="Offhand"><span>Sign<b>Off</b></span></div>
     <div class="brand-by under">by OFFHAND</div>
     <h1 id="lock-title">Zaloguj się</h1>
     <p class="muted">Wybierz konto i podaj PIN.</p>
@@ -65,7 +65,7 @@
 <!-- ===== EKRAN: GŁÓWNY ===== -->
 <section id="view-home" class="view" hidden>
   <header class="topbar">
-    <div class="brand-top"><div class="logo small">🎬 <span>Sign<b>Off</b></span></div><span class="brand-by inline">by OFFHAND</span></div>
+    <div class="brand-top"><div class="logo small"><img class="brand-mark" src="icons/offhand-logo.svg" alt="Offhand"><span>Sign<b>Off</b></span></div><span class="brand-by inline">by OFFHAND</span></div>
     <div class="topbar-right">
       <span id="user-badge" class="badge planned" data-help="Zalogowany użytkownik. 👑 = administrator (pełne uprawnienia), 👤 = pracownik (tylko zbieranie zgód)."></span>
       <span id="sync-badge" class="badge offline" data-help="Stan kopii w chmurze. Godzina = ostatnia udana synchronizacja; „oczekuje” = wyśle przy najbliższym połączeniu.">☁ —</span>
@@ -165,8 +165,12 @@
     </div>
 
     <div class="wstep" id="wstep-4" hidden>
-      <h2>4. Zdjęcie osoby podpisującej (zalecane)</h2>
+      <h2 id="cam-title">4. Zdjęcie osoby podpisującej</h2>
       <p class="muted">Zdjęcie wzmacnia wartość dowodową zgody („to nie ja podpisałem” ✗). Zostanie osadzone w dokumencie PDF.</p>
+      <div class="rodo-note">
+        <b>Informacja:</b> zdjęcie zostanie wykonane i przechowane <b>jako dowód udzielenia zgody</b>.
+        Podstawa: prawnie uzasadniony interes administratora (art. 6 ust. 1 lit. f RODO). Zdjęcie <b>nie</b> służy rozpoznawaniu twarzy i nie jest przetwarzane biometrycznie.
+      </div>
       <div class="cam-wrap">
         <video id="cam-video" autoplay playsinline hidden></video>
         <canvas id="cam-canvas" hidden></canvas>

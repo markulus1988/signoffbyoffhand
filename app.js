@@ -48,6 +48,7 @@ async function decryptBytes(key, pack) {
 }
 const uuid = () => crypto.randomUUID();
 const PIN_RE = /^\d{6,}$/;
+const isValidEmail = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test((e || "").trim());
 
 /* ===================== IndexedDB ===================== */
 let dbh = null;
@@ -228,7 +229,7 @@ async function boot() {
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
   S.config = await metaGet("config") || null;
   updateNetBadge();
-  window.addEventListener("online", () => { updateNetBadge(); scheduleSync(); });
+  window.addEventListener("online", () => { updateNetBadge(); scheduleSync(); flushOutbox(); });
   window.addEventListener("offline", updateNetBadge);
   ["click", "keydown", "pointerdown"].forEach(ev => document.addEventListener(ev, resetLockTimer, { passive: true }));
   if (!S.config) show("view-setup"); else enterLogin();
@@ -378,6 +379,7 @@ function enterHome() {
   renderStats(); renderList($("search").value);
   $("verify-result").hidden = true;
   updateSyncBadge();
+  flushOutbox();
   show("view-home");
 }
 $("project-select").addEventListener("change", async (e) => {
@@ -616,6 +618,7 @@ document.querySelectorAll("[data-next]").forEach(b => b.addEventListener("click"
   if (validateStep(n - 1)) {
     if (n === 2) prepareConsentStep();
     if (n === 3) prepareSignStep();
+    if (n === 4) prepareCameraStep();
     if (n === 5) renderSummary();
     gotoStep(n);
   }
@@ -661,7 +664,11 @@ function validateStep(n) {
   }
   if (n === 4) {
     stopCameraStream();
-    auditEvent(S.wizard, "zdjęcie", S.wizard.photo ? "wykonano zdjęcie podpisującego" : "pominięto (brak zdjęcia)");
+    if (S.wizard.photoRequired && !S.wizard.photo) {
+      err.textContent = "W tym projekcie zdjęcie jest obowiązkowe — wykonaj zdjęcie, aby kontynuować (albo administrator może wyłączyć ten wymóg w ustawieniach projektu).";
+      err.hidden = false; return false;
+    }
+    auditEvent(S.wizard, "zdjęcie", S.wizard.photo ? "wykonano zdjęcie podpisującego (dowód)" : "pominięto (tryb zalecany)");
     return true;
   }
   return true;
@@ -742,6 +749,16 @@ function prepareSignStep() {
 
 /* --- krok 4: zdjęcie --- */
 let camStream = null;
+function prepareCameraStep() {
+  const req = !!activeProject().requirePhoto;
+  S.wizard.photoRequired = req;
+  $("cam-title").innerHTML = "4. Zdjęcie osoby podpisującej" +
+    (req ? ' <span class="req-pill req">wymagane</span>' : ' <span class="req-pill opt">zalecane</span>');
+  if (!S.wizard._photoNoticeLogged) {
+    auditEvent(S.wizard, "zdjęcie", "pokazano informację o celu i podstawie zdjęcia-dowodu (art. 6 ust. 1 lit. f RODO)" + (req ? " — tryb obowiązkowy" : " — tryb zalecany"));
+    S.wizard._photoNoticeLogged = true;
+  }
+}
 function resetCamera() {
   stopCameraStream();
   $("cam-video").hidden = true; $("cam-photo").hidden = true;
@@ -824,14 +841,26 @@ $("btn-save").addEventListener("click", async () => {
     await saveConfig();
     record._chain = chain;
     S.records.push(record);
-    if (w.person.email) {
-      await tx("outbox", "readwrite", s => s.put({ id: record.id, to: w.person.email, name: `${w.person.first} ${w.person.last}`, queuedAt: new Date().toISOString(), status: "oczekuje" }));
-    }
     scheduleSync();
-    if (syncCfg().autoEmail && w.person.email) {
-      serverEmail(record).then(ok => { if (ok) $("done-info").textContent += " ✉ Kopia wysłana e-mailem."; });
+    // Kopia e-mailem — nigdy nie blokuje zapisu zgody. Trzy przypadki: brak / błędny / poprawny adres.
+    const base = `ID: ${record.id} · SHA-256: ${record.hash.slice(0, 16)}…`;
+    const emailRaw = (w.person.email || "").trim();
+    if (!emailRaw) {
+      $("done-info").textContent = base + " · Brak e-maila — kopię przekaż ręcznie przyciskiem „Wyślij / udostępnij”.";
+    } else if (!isValidEmail(emailRaw)) {
+      $("done-info").textContent = base + ` · ⚠ Adres „${emailRaw}” wygląda na niepoprawny — kopii e-mail NIE wysłano. Przekaż PDF ręcznie.`;
+      await tx("outbox", "readwrite", s => s.put({ id: record.id, to: emailRaw, name: `${w.person.first} ${w.person.last}`, queuedAt: new Date().toISOString(), status: "błędny adres — nie wysłano" }));
+    } else {
+      await tx("outbox", "readwrite", s => s.put({ id: record.id, to: emailRaw, name: `${w.person.first} ${w.person.last}`, queuedAt: new Date().toISOString(), status: "oczekuje" }));
+      $("done-info").textContent = base + ` · Kopia dla ${emailRaw} w kolejce.`;
+      if (syncCfg().autoEmail) {
+        serverEmail(record).then(ok => {
+          $("done-info").textContent = base + (ok
+            ? ` · ✉ Kopia wysłana e-mailem na ${emailRaw}.`
+            : ` · Kopia dla ${emailRaw} w kolejce — wyślemy automatycznie, gdy serwer będzie dostępny.`);
+        }).catch(() => {});
+      }
     }
-    $("done-info").textContent = `ID: ${record.id} · SHA-256: ${record.hash.slice(0, 16)}… · ${w.person.email ? "Kopia dla " + w.person.email + " w kolejce." : "Brak e-maila — przekaż PDF osobiście."}`;
     $("btn-done-pdf").onclick = () => downloadPDF(record);
     gotoStep(6);
   } catch (e) {
@@ -845,7 +874,7 @@ $("btn-done-home").addEventListener("click", enterHome);
 /* automatyczna wysyłka e-mail przez serwer (SMTP po stronie serwera) */
 async function serverEmail(r) {
   const c = syncCfg();
-  if (!c.url || !c.key || !r.person.email || !navigator.onLine) return false;
+  if (!c.url || !c.key || !isValidEmail(r.person.email) || !navigator.onLine) return false;
   try {
     const bytes = await buildPDF(r);
     const resp = await fetch(c.url.replace(/\/+$/, "") + "/api/email", {
@@ -897,6 +926,20 @@ async function markSent(id, status) {
   if (!row) return;
   row.status = status; row.sentAt = new Date().toISOString();
   await tx("outbox", "readwrite", s => s.put(row));
+}
+/* Niezawodność: po powrocie sieci / przy wejściu na ekran główny ponawiamy nieudane wysyłki. */
+let flushing = false;
+async function flushOutbox() {
+  const c = syncCfg();
+  if (flushing || !c.url || !c.key || !c.autoEmail || !navigator.onLine || !S.key) return;
+  flushing = true;
+  try {
+    for (const o of await getAll("outbox")) {
+      if (o.sentAt || (o.status || "").startsWith("wysłano") || (o.status || "").startsWith("błędny")) continue;
+      const r = S.records.find(x => x.id === o.id);
+      if (r && isValidEmail(r.person.email)) await serverEmail(r);
+    }
+  } finally { flushing = false; }
 }
 $("btn-done-share").addEventListener("click", () => {
   const r = S.records[S.records.length - 1];
@@ -998,6 +1041,8 @@ function renderProjects() {
         <textarea rows="3" placeholder="np. treść regulaminu wydarzenia…">${esc(p.customText || "")}</textarea>
       </label>
       <div class="proj-allowed"><span class="tiny muted">Uprawnieni (nikt zaznaczony = wszyscy):</span></div>
+      <label class="check tiny-check photo-req"><input type="checkbox" ${p.requirePhoto ? "checked" : ""}><span>📷 Zdjęcie-dowód <b>obowiązkowe</b> w tym projekcie</span></label>
+      <div class="proj-rec">💡 Rekomendacja: dla bohaterów pierwszoplanowych i wywiadów włącz zdjęcie obowiązkowe — istotnie wzmacnia dowód udzielenia zgody. Dla scen z tłem / przechodniami wystarczy tryb zalecany (domyślny).</div>
       <div class="proj-files"></div>
       <div class="wnav-mini">
         <button class="btn" data-act="savetext">💾 Zapisz</button>
@@ -1005,6 +1050,11 @@ function renderProjects() {
         ${S.vault.projects.length > 1 ? '<button class="btn danger" data-act="del">🗑 Usuń projekt</button>' : ""}
       </div>
       <input type="file" accept="application/pdf" hidden>`;
+    // zdjęcie obowiązkowe
+    card.querySelector(".photo-req input").addEventListener("change", async (e) => {
+      p.requirePhoto = e.target.checked;
+      await saveVault();
+    });
     // uprawnienia
     const allowedBox = card.querySelector(".proj-allowed");
     for (const acc of employees) {
@@ -1059,7 +1109,7 @@ function renderProjects() {
 $("btn-add-project").addEventListener("click", async () => {
   const name = $("new-project-name").value.trim();
   if (!name) { alert("Podaj nazwę projektu."); return; }
-  S.vault.projects.push({ id: uuid(), name, customText: "", files: [], allowedUserIds: [] });
+  S.vault.projects.push({ id: uuid(), name, customText: "", files: [], allowedUserIds: [], requirePhoto: false });
   $("new-project-name").value = "";
   await saveVault(); renderProjects();
 });

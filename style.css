@@ -34,9 +34,16 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 26px 0; }
 code { background: #eef2f8; padding: 1px 5px; border-radius: 5px; font-size: .85em; }
 
 /* ---------- logo / lock ---------- */
-.logo { font-size: 1.7rem; font-weight: 300; letter-spacing: .5px; margin-bottom: 8px; }
+.logo { font-size: 1.7rem; font-weight: 300; letter-spacing: .5px; margin-bottom: 8px; display: inline-flex; align-items: center; }
 .logo b { font-weight: 800; color: var(--amber-dark); }
 .logo.small { font-size: 1.15rem; margin-bottom: 0; }
+.brand-mark { height: 1.45em; width: auto; margin-right: .42em; flex: 0 0 auto; }
+.lock-card .logo { justify-content: center; }
+.rodo-note { background: #eef3fb; border: 1px solid #cfe0f5; border-radius: 10px; padding: 11px 14px; font-size: .9rem; color: #20406a; margin: 4px 0 12px; line-height: 1.5; }
+.proj-rec { background: #fff8ec; border: 1px solid #f3ddb0; border-radius: 10px; padding: 9px 12px; font-size: .82rem; color: #6b5118; margin: 8px 0 4px; }
+.req-pill { display: inline-block; font-size: .72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; padding: 3px 9px; border-radius: 99px; margin-left: 8px; vertical-align: middle; }
+.req-pill.req { background: #fde3de; color: var(--bad); }
+.req-pill.opt { background: #e1f0e6; color: var(--good); }
 .brand-by {
   font-size: .68rem; font-weight: 700; text-transform: uppercase;
   letter-spacing: .22em; color: var(--ink-2); opacity: .75;

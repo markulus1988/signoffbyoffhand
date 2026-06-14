@@ -16,7 +16,7 @@ const keyFile = path.join(DATA, "sync-key.txt");
 if (!fs.existsSync(keyFile)) fs.writeFileSync(keyFile, crypto.randomBytes(12).toString("hex"));
 const SYNC_KEY = (process.env.SYNC_KEY || fs.readFileSync(keyFile, "utf8")).trim();
 
-const MIME = { ".html": "text/html; charset=utf-8", ".css": "text/css", ".js": "text/javascript", ".json": "application/json", ".ttf": "font/ttf", ".png": "image/png" };
+const MIME = { ".html": "text/html; charset=utf-8", ".css": "text/css", ".js": "text/javascript", ".json": "application/json", ".ttf": "font/ttf", ".png": "image/png", ".svg": "image/svg+xml", ".webmanifest": "application/manifest+json", ".ico": "image/x-icon" };
 const MAX_BODY = 100 * 1024 * 1024; // 100 MB
 const safeId = (s) => /^[a-zA-Z0-9-]{1,64}$/.test(s || "");
 
