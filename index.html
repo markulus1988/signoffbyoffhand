@@ -36,7 +36,7 @@
     <!-- normalne logowanie -->
     <div id="loginbox">
       <p class="muted" id="login-hint">Wybierz konto i podaj PIN.</p>
-      <div id="account-buttons" class="op-buttons"></div>
+      <div id="account-area"></div>
       <input type="password" id="lock-pin" inputmode="numeric" autocomplete="current-password" placeholder="PIN" class="pin-input">
       <p id="lock-error" class="error" hidden></p>
       <button class="btn primary big" id="btn-unlock">Zaloguj</button>
@@ -45,8 +45,18 @@
     <p class="tiny muted">Tryb offline ✓ · AES-256-GCM ✓ · Blokada po 5 błędnych próbach ✓ · Kopia w chmurze E2E ✓</p>
     <div class="lock-mark"><img src="icons/offhand-logo.svg" alt="Offhand"></div>
     <p class="credit">przygotował Marek Żak · dla Offhand Hanna Nobis</p>
+    <p class="tiny"><a href="#" id="link-rodo" class="rodo-link">Regulamin i klauzula informacyjna (RODO) dla użytkowników</a></p>
   </div>
 </section>
+
+<!-- ===== MODAL: REGULAMIN / KLAUZULA RODO DLA UŻYTKOWNIKÓW ===== -->
+<div id="rodo-modal" class="cam-help" hidden>
+  <div class="cam-help-card rodo-modal-card">
+    <h3>Regulamin i klauzula informacyjna (RODO)</h3>
+    <div class="rodo-doc" id="rodo-doc"></div>
+    <div class="cam-help-actions"><button class="btn primary big" id="btn-rodo-close">Zamknij</button></div>
+  </div>
+</div>
 
 <!-- ===== EKRAN: GŁÓWNY ===== -->
 <section id="view-home" class="view" hidden>
@@ -64,7 +74,8 @@
   <main class="container">
     <div class="home-head">
       <div class="project-pick">
-        <label class="tiny muted">Aktywny projekt</label>
+        <button class="btn admin-only" id="btn-new-project" data-help="Tworzy nowy projekt i przechodzi do jego ustawień (nazwa, treść zgody, dokumenty, kto zbiera).">＋ Utwórz projekt</button>
+        <label class="tiny muted" for="project-select">Projekt, do którego zbierasz zgody</label>
         <select id="project-select"></select>
         <p class="muted tiny" id="home-producer"></p>
       </div>
@@ -117,21 +128,21 @@
 
     <div class="wstep" id="wstep-2" hidden>
       <h2>2. Treść zgody i dokumenty</h2>
-      <p class="muted">Przewiń i przeczytaj całość. Zgody można wyrazić dopiero po przewinięciu do końca.</p>
+      <p class="muted">Przeczytaj treść poniżej. Zgody oznaczone <span class="req-star">✱</span> są obowiązkowe.</p>
       <div class="consent-text" id="consent-text"></div>
       <div id="attach-box"></div>
-      <div id="consent-checks" class="checks-locked">
+      <div id="consent-checks">
         <label class="check big-check">
-          <input type="checkbox" id="c-image" disabled>
-          <span><b>Zezwolenie na rozpowszechnianie wizerunku</b> (art. 81 ustawy o prawie autorskim i prawach pokrewnych) — w zakresie opisanym powyżej. <em>Wymagane.</em></span>
+          <input type="checkbox" id="c-image">
+          <span><b>Zezwolenie na rozpowszechnianie wizerunku</b> (art. 81 ustawy o prawie autorskim i prawach pokrewnych) — w zakresie opisanym powyżej. <span class="req-star">✱ obowiązkowe</span></span>
         </label>
         <label class="check big-check">
-          <input type="checkbox" id="c-rodo" disabled>
-          <span><b>Zgoda na przetwarzanie danych osobowych</b> (art. 6 ust. 1 lit. a RODO) — zgodnie z klauzulą informacyjną powyżej. Mogę ją cofnąć w każdej chwili ze skutkiem na przyszłość. <em>Wymagane.</em></span>
+          <input type="checkbox" id="c-rodo">
+          <span><b>Zgoda na przetwarzanie danych osobowych</b> (art. 6 ust. 1 lit. a RODO) — zgodnie z klauzulą informacyjną powyżej. Mogę ją cofnąć w każdej chwili ze skutkiem na przyszłość. <span class="req-star">✱ obowiązkowe</span></span>
         </label>
         <label class="check big-check">
-          <input type="checkbox" id="c-marketing" disabled>
-          <span><b>Zgoda dodatkowa:</b> wykorzystanie wizerunku w materiałach promocyjnych i marketingowych. <em>Dobrowolne — niezależnie odwoływalne.</em></span>
+          <input type="checkbox" id="c-marketing">
+          <span><b>Zgoda dodatkowa:</b> wykorzystanie wizerunku w materiałach promocyjnych i marketingowych. <em class="muted">Dobrowolne — niezależnie odwoływalne.</em></span>
         </label>
       </div>
       <p class="error" id="err-2" hidden></p>

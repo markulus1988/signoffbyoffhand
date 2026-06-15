@@ -269,8 +269,7 @@ $("btn-setup").addEventListener("click", async () => {
   S.dekRaw = dekRaw;
   S.key = await importDEK(dekRaw);
   S.user = acc;
-  const pid = uuid();
-  S.vault = { producer: "Offhand Hanna Nobis", email: "", projects: [{ id: pid, name: "Projekt 1", customText: "", files: [], allowedUserIds: [], requirePhoto: false }], activeProjectId: pid, sync: { url: "", key: "", auto: true } };
+  S.vault = { producer: "Offhand Hanna Nobis", email: "", projects: [], activeProjectId: null, sync: { url: "", key: "", auto: true } };
   await saveVault();
   enterHome();
 });
@@ -293,30 +292,23 @@ function enterLogin() {
   accSelected = null;
   $("lock-pin").value = "";
   $("lock-title").textContent = "Zaloguj się";
-  const box = $("account-buttons");
-  box.innerHTML = "";
   const actives = S.config.accounts.filter(a => a.active);
-  for (const acc of actives) {
-    const b = document.createElement("button");
-    b.className = "btn op-btn";
-    b.innerHTML = `${esc(acc.name)} <span class="op-role">${roleLabel(acc.role)}</span>`;
-    b.addEventListener("click", () => {
-      accSelected = acc;
-      [...box.children].forEach(x => x.classList.remove("primary"));
-      b.classList.add("primary");
-      $("lock-pin").focus();
-    });
-    box.appendChild(b);
-  }
-  // jedno konto — zaznacz je automatycznie, kursor od razu w PIN
+  const area = $("account-area");
   if (actives.length === 1) {
+    // jeden użytkownik — wyświetlony, wystarczy PIN
     accSelected = actives[0];
-    box.firstElementChild.classList.add("primary");
+    area.innerHTML = `<div class="single-account">Zalogujesz się jako <b>${esc(actives[0].name)}</b> <span class="op-role">${roleLabel(actives[0].role)}</span></div>`;
     $("login-hint").textContent = "Podaj PIN, aby się zalogować.";
-    $("account-buttons").hidden = false;
     setTimeout(() => $("lock-pin").focus(), 60);
   } else {
-    $("login-hint").textContent = "Dotknij swoje konto i podaj PIN.";
+    // wielu użytkowników — lista wybieralna
+    $("login-hint").textContent = "Wybierz konto i podaj PIN.";
+    const opts = actives.map(a => `<option value="${a.id}">${esc(a.name)} · ${roleLabel(a.role)}</option>`).join("");
+    area.innerHTML = `<select id="account-select"><option value="" disabled selected>— wybierz konto —</option>${opts}</select>`;
+    $("account-select").addEventListener("change", (e) => {
+      accSelected = actives.find(a => a.id === e.target.value) || null;
+      $("lock-pin").focus();
+    });
   }
   show("view-lock");
 }
@@ -383,9 +375,17 @@ function enterHome() {
   resetLockTimer();
   applyRole();
   const projs = allowedProjects();
-  if (!projs.length) { alert("Brak projektów przydzielonych temu kontu — skontaktuj się z administratorem."); lock(); return; }
-  if (!projs.find(p => p.id === S.vault.activeProjectId)) S.vault.activeProjectId = projs[0].id;
-  $("project-select").innerHTML = projs.map(p => `<option value="${p.id}" ${p.id === S.vault.activeProjectId ? "selected" : ""}>${esc(p.name)}</option>`).join("");
+  const sel = $("project-select");
+  if (!projs.length) {
+    // brak projektów — wyszarzone, „Nowa zgoda" niedostępna
+    sel.innerHTML = `<option disabled selected>Brak projektów${isAdmin() ? " — dotknij „＋ Utwórz projekt”" : " — poproś administratora"}</option>`;
+    sel.disabled = true;
+    $("btn-new").disabled = true;
+  } else {
+    sel.disabled = false; $("btn-new").disabled = false;
+    if (!projs.find(p => p.id === S.vault.activeProjectId)) S.vault.activeProjectId = projs[0].id;
+    sel.innerHTML = projs.map(p => `<option value="${p.id}" ${p.id === S.vault.activeProjectId ? "selected" : ""}>${esc(p.name)}</option>`).join("");
+  }
   $("home-producer").textContent = S.vault.producer;
   renderStats(); renderList($("search").value);
   $("verify-result").hidden = true;
@@ -393,6 +393,7 @@ function enterHome() {
   flushOutbox();
   show("view-home");
 }
+$("btn-new-project").addEventListener("click", () => { if (isAdmin()) { enterSettings(); setTimeout(() => { const i = $("new-project-name"); if (i) { i.scrollIntoView({ block: "center" }); i.focus(); } }, 100); } });
 $("project-select").addEventListener("change", async (e) => {
   S.vault.activeProjectId = e.target.value;
   await saveVault();
@@ -603,10 +604,12 @@ async function addFileToProject(proj, file) {
   if (file.size > 15 * 1024 * 1024) throw new Error("Plik przekracza 15 MB.");
   const buf = await file.arrayBuffer();
   const hash = await sha256hex(buf);
+  let pages = 0;
+  try { pages = (await window.PDFLib.PDFDocument.load(buf)).getPageCount(); } catch {}
   const id = uuid();
   const pack = await encryptBytes(S.key, buf);
   await tx("files", "readwrite", s => s.put({ id, pack }));
-  proj.files.push({ id, name: file.name, size: file.size, hash, addedAt: new Date().toISOString() });
+  proj.files.push({ id, name: file.name, size: file.size, hash, pages, required: true, addedAt: new Date().toISOString() });
   await saveVault();
 }
 async function openFile(fileMeta) {
@@ -680,13 +683,13 @@ function validateStep(n) {
     return true;
   }
   if (n === 2) {
-    if (!$("c-image").checked || !$("c-rodo").checked) { err.textContent = "Obie wymagane zgody (art. 81 i RODO) muszą być zaznaczone — po przeczytaniu treści do końca."; err.hidden = false; return false; }
+    if (!$("c-image").checked || !$("c-rodo").checked) { err.textContent = "Obowiązkowe zgody (✱ art. 81 i RODO) muszą być zaznaczone."; err.hidden = false; return false; }
     const proj = activeProject();
     for (const f of proj.files) {
-      if (!S.wizard.attachChecks[f.id]) { err.textContent = `Wymagane potwierdzenie zapoznania się z dokumentem: ${f.name}.`; err.hidden = false; return false; }
+      if (f.required !== false && !S.wizard.attachChecks[f.id]) { err.textContent = `Zaznacz akceptację obowiązkowego dokumentu: ${f.name}.`; err.hidden = false; return false; }
     }
     S.wizard.consents = { image81: true, rodo: true, marketing: $("c-marketing").checked };
-    S.wizard.attachments = proj.files.map(f => ({ fileId: f.id, name: f.name, hash: f.hash }));
+    S.wizard.attachments = proj.files.map(f => ({ fileId: f.id, name: f.name, hash: f.hash, required: f.required !== false, accepted: !!S.wizard.attachChecks[f.id] }));
     return true;
   }
   if (n === 3) {
@@ -715,37 +718,27 @@ function prepareConsentStep() {
   box.textContent = S.wizard.templateText;
   box.scrollTop = 0;
   auditEvent(S.wizard, "treść", `wyświetlono treść zgody (szablon ${TEMPLATE_VERSION}${proj.customText ? ", treść własna projektu" : ""})`);
+  // zgody dostępne od razu — bez wymuszania przewijania
+  ["c-image", "c-rodo", "c-marketing"].forEach(id => { $(id).disabled = false; });
+  $("c-image").required = true; $("c-rodo").required = true; $("c-marketing").required = false;
+  // dokumenty projektu (regulaminy/umowy)
   const ab = $("attach-box");
   ab.innerHTML = "";
   S.wizard.attachChecks = {};
   for (const f of proj.files) {
+    const required = f.required !== false;
+    const big = (f.pages || 0) > 10;
     const row = document.createElement("div");
-    row.className = "attach-row";
+    row.className = required ? "doc-accept" : "attach-row";
     row.innerHTML = `
-      <div class="attach-info">📎 <b>${esc(f.name)}</b> <span class="tiny muted">(${(f.size / 1024).toFixed(0)} KB · SHA-256: ${f.hash.slice(0, 12)}…)</span></div>
-      <button class="btn" type="button">👁 Otwórz</button>
-      <label class="check"><input type="checkbox" disabled><span>Zapoznałem/am się z treścią tego dokumentu i akceptuję go</span></label>`;
-    row.querySelector("button").addEventListener("click", () => {
-      openFile(f);
-      auditEvent(S.wizard, "dokument", `otwarto załączony dokument: ${f.name}`);
-    });
-    const cb = row.querySelector("input");
-    cb.addEventListener("change", () => {
-      S.wizard.attachChecks[f.id] = cb.checked;
-      auditEvent(S.wizard, "dokument", `${f.name}: ${cb.checked ? "potwierdzono zapoznanie" : "wycofano potwierdzenie"}`);
-    });
+      <div class="attach-info">📎 <b>${esc(f.name)}</b> <span class="doc-pages">${f.pages ? f.pages + " str." : ""}${required ? "" : " · do wglądu"}</span></div>
+      <button class="btn" type="button" data-open>👁 Otwórz dokument</button>
+      ${required ? `<label class="check"><input type="checkbox" data-acc required><span>${big ? "Potwierdzam, że zapoznałem/am się z <b>całością</b> dokumentu i akceptuję go" : "Zapoznałem/am się z dokumentem i akceptuję go"} <span class="req-star">✱ obowiązkowe</span></span></label>` : ""}`;
+    row.querySelector("[data-open]").addEventListener("click", () => { openFile(f); auditEvent(S.wizard, "dokument", `otwarto: ${f.name}`); });
+    const cb = row.querySelector("[data-acc]");
+    if (cb) cb.addEventListener("change", () => { S.wizard.attachChecks[f.id] = cb.checked; auditEvent(S.wizard, "dokument", `${f.name}: ${cb.checked ? "zaakceptowano" : "cofnięto"}`); });
     ab.appendChild(row);
   }
-  const enable = () => {
-    if (box.scrollTop + box.clientHeight >= box.scrollHeight - 24) {
-      ["c-image", "c-rodo", "c-marketing"].forEach(id => $(id).disabled = false);
-      ab.querySelectorAll("input").forEach(i => i.disabled = false);
-      auditEvent(S.wizard, "treść", "przewinięto treść do końca — odblokowano zgody");
-      box.removeEventListener("scroll", enable);
-    }
-  };
-  box.addEventListener("scroll", enable);
-  if (box.scrollHeight <= box.clientHeight + 24) enable();
   ["c-image", "c-rodo", "c-marketing"].forEach(id => {
     $(id).onchange = (e) => auditEvent(S.wizard, "checkbox", `${id}: ${e.target.checked ? "zaznaczono" : "odznaczono"}`);
   });
@@ -1209,8 +1202,14 @@ function renderProjects() {
     const filesBox = card.querySelector(".proj-files");
     const renderFiles = () => {
       filesBox.innerHTML = p.files.length
-        ? p.files.map((f, i) => `<div class="attach-row"><div class="attach-info">📎 <b>${esc(f.name)}</b> <span class="tiny muted">(${(f.size / 1024).toFixed(0)} KB)</span></div><button class="btn" data-open="${i}">👁</button><button class="btn danger" data-rm="${i}">✕</button></div>`).join("")
+        ? p.files.map((f, i) => `<div class="attach-row">
+            <div class="attach-info">📎 <b>${esc(f.name)}</b> <span class="tiny muted">(${(f.size / 1024).toFixed(0)} KB${f.pages ? ", " + f.pages + " str." : ""})</span></div>
+            <label class="check tiny-check"><input type="checkbox" data-req="${i}" ${f.required !== false ? "checked" : ""}><span>obowiązkowy ${f.required !== false ? '<span class="req-star">✱</span>' : ""}</span></label>
+            <button class="btn" data-open="${i}">👁</button><button class="btn danger" data-rm="${i}">✕</button></div>`).join("")
         : '<p class="tiny muted">Brak załączonych dokumentów.</p>';
+      filesBox.querySelectorAll("[data-req]").forEach(cb => cb.addEventListener("change", async () => {
+        p.files[+cb.dataset.req].required = cb.checked; await saveVault(); renderFiles();
+      }));
       filesBox.querySelectorAll("[data-open]").forEach(b => b.addEventListener("click", () => openFile(p.files[+b.dataset.open])));
       filesBox.querySelectorAll("[data-rm]").forEach(b => b.addEventListener("click", async () => {
         const f = p.files[+b.dataset.rm];
@@ -1492,5 +1491,28 @@ async function downloadPDF(r) {
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 5000);
 }
+
+/* ===================== Regulamin i klauzula RODO dla użytkowników aplikacji ===================== */
+const RODO_USERS_TEXT =
+`REGULAMIN KORZYSTANIA Z APLIKACJI SignOff by Offhand
+
+1. Aplikacja służy wyłącznie do zbierania zgód (wizerunek, RODO) i podpisywania dokumentów w imieniu administratora — Offhand Hanna Nobis.
+2. Każdy użytkownik (administrator, pracownik, inne) loguje się własnym PIN-em i odpowiada za jego poufność. PIN-u nie wolno udostępniać.
+3. Dane są szyfrowane na urządzeniu (AES-256). Aplikacja działa offline; kopia w chmurze, jeśli włączona, przechowuje wyłącznie zaszyfrowane dane.
+4. Użytkownik zbiera zgody tylko w przydzielonych projektach i zgodnie z poleceniem administratora.
+5. Zabronione jest modyfikowanie, kopiowanie lub usuwanie zebranych zgód poza aplikacją — integralność jest weryfikowana kryptograficznie.
+
+KLAUZULA INFORMACYJNA (RODO) DLA UŻYTKOWNIKÓW APLIKACJI
+
+1. Administratorem danych osobowych użytkowników jest Offhand Hanna Nobis.
+2. Zakres danych użytkownika: imię i nazwisko, rola, identyfikator urządzenia oraz informacja, kto i kiedy zebrał daną zgodę (rozliczalność). PIN nie jest przechowywany w postaci jawnej — służy wyłącznie do odszyfrowania danych na urządzeniu.
+3. Cel i podstawa: organizacja i rozliczalność procesu zbierania zgód — art. 6 ust. 1 lit. b oraz lit. f RODO (prawnie uzasadniony interes administratora: bezpieczeństwo i wykazanie, kto zebrał zgodę).
+4. Dane przechowywane są przez okres korzystania z aplikacji oraz okres przedawnienia roszczeń; kopie w chmurze są zaszyfrowane end-to-end.
+5. Przysługuje prawo dostępu do danych, sprostowania, usunięcia, ograniczenia, sprzeciwu oraz skargi do Prezesa UODO.
+6. Dane nie są wykorzystywane do profilowania ani automatycznego podejmowania decyzji.
+
+Kontakt w sprawie danych: Offhand Hanna Nobis.`;
+$("link-rodo").addEventListener("click", (e) => { e.preventDefault(); $("rodo-doc").textContent = RODO_USERS_TEXT; $("rodo-modal").hidden = false; });
+$("btn-rodo-close").addEventListener("click", () => { $("rodo-modal").hidden = true; });
 
 boot();
