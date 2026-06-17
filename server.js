@@ -44,7 +44,8 @@ function api(req, res, url) {
   if (req.method === "OPTIONS") { res.writeHead(204); res.end(); return; }
   const json = (code, obj) => { res.writeHead(code, { "Content-Type": "application/json" }); res.end(JSON.stringify(obj)); };
 
-  if ((req.headers["x-sync-key"] || "") !== SYNC_KEY) return json(401, { error: "Nieprawidłowy klucz synchronizacji." });
+  // /api/email niesie własne dane nadawcy (SMTP) — nie wymaga klucza synchronizacji.
+  if (url.pathname !== "/api/email" && (req.headers["x-sync-key"] || "") !== SYNC_KEY) return json(401, { error: "Nieprawidłowy klucz synchronizacji." });
 
   if (req.method === "POST" && url.pathname === "/api/sync") {
     let body = "", size = 0;

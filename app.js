@@ -269,7 +269,7 @@ $("btn-setup").addEventListener("click", async () => {
   S.dekRaw = dekRaw;
   S.key = await importDEK(dekRaw);
   S.user = acc;
-  S.vault = { producer: "Offhand Hanna Nobis", email: "", projects: [], activeProjectId: null, sync: { url: "", key: "", auto: true } };
+  S.vault = { producer: "Offhand Hanna Nobis", email: "", projects: [], activeProjectId: null, sync: { url: "", key: "", auto: true, autoEmail: true } };
   await saveVault();
   enterHome();
 });
@@ -580,6 +580,49 @@ async function fbListDevices() {
   });
 }
 
+/* --- A+B: niezmienialna historia kopii — każda migawka to osobny, NIENADPISYWALNY wpis.
+   Reguły Firestore zabraniają update/delete na signoff_history*, więc backupu nie da się
+   skasować ani zepsuć nadpisaniem. Migawkę robimy max raz na ~20 h oraz przy ręcznej sync. */
+async function fbSnapshotHistory(rec) {
+  const c = fbCfg(), token = await fbSignIn();
+  const H = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
+  const base = `${rec.deviceId}__${rec.updatedAt.replace(/[^0-9]/g, "")}`;
+  const json = JSON.stringify(rec.payload);
+  const parts = []; for (let i = 0; i < json.length; i += FB_CHUNK) parts.push(json.slice(i, i + FB_CHUNK));
+  for (let i = 0; i < parts.length; i++) {
+    const r = await fetch(fbDocUrl(c, `signoff_history_chunks/${base}_${i}`), { method: "PATCH", headers: H, body: JSON.stringify({ fields: { data: { stringValue: parts[i] } } }) });
+    if (!r.ok) { const o = await r.json().catch(() => ({})); throw new Error((o.error && o.error.message) || ("zapis fragmentu historii " + r.status)); }
+  }
+  const m = await fetch(fbDocUrl(c, `signoff_history/${base}`), { method: "PATCH", headers: H, body: JSON.stringify({ fields: { deviceId: { stringValue: rec.deviceId }, deviceName: { stringValue: rec.deviceName || "" }, updatedAt: { stringValue: rec.updatedAt }, chunks: { integerValue: String(parts.length) } } }) });
+  if (!m.ok) { const o = await m.json().catch(() => ({})); throw new Error((o.error && o.error.message) || ("zapis metadanych historii " + m.status)); }
+  return true;
+}
+async function fbListHistory() {
+  const c = fbCfg(), token = await fbSignIn();
+  const resp = await fetch(fbDocUrl(c, `signoff_history?pageSize=300`), { headers: { Authorization: "Bearer " + token } });
+  const out = await resp.json().catch(() => ({}));
+  if (!resp.ok) throw new Error((out.error && out.error.message) || ("lista historii " + resp.status));
+  return (out.documents || []).map(d => {
+    const id = (d.name || "").split("/").pop(); const f = d.fields || {};
+    return { id, deviceName: (f.deviceName && f.deviceName.stringValue) || id, updatedAt: f.updatedAt && f.updatedAt.stringValue };
+  }).sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
+}
+async function fbDownloadHistory(id) {
+  const c = fbCfg(), token = await fbSignIn();
+  const H = { Authorization: "Bearer " + token };
+  const meta = await (await fetch(fbDocUrl(c, `signoff_history/${id}`), { headers: H })).json();
+  const n = meta.fields && meta.fields.chunks ? Number(meta.fields.chunks.integerValue) : 0;
+  let json = "";
+  for (let i = 0; i < n; i++) {
+    const r = await fetch(fbDocUrl(c, `signoff_history_chunks/${id}_${i}`), { headers: H });
+    const o = await r.json(); if (!r.ok) throw new Error("pobranie fragmentu historii " + i);
+    json += o.fields.data.stringValue;
+  }
+  return { payload: JSON.parse(json) };
+}
+/* Domyślny adres serwera wysyłki e-mail (Render) — żeby maile działały bez ręcznego wpisywania adresu. */
+const RENDER_URL = "https://signoffbyoffhand.onrender.com";
+
 function cloudEnabled() { return !!fbCfg() || !!(syncCfg().url && syncCfg().key); }
 
 /* dane projektu Firebase signoff-offhand (apiKey/projectId są jawne; hasło wpisuje administrator) */
@@ -622,6 +665,27 @@ $("btn-fb-restore").addEventListener("click", async () => {
       });
       box.appendChild(row);
     }
+    // A+B: niezmienialna historia kopii (nie do skasowania ani nadpisania)
+    try {
+      const hist = await fbListHistory();
+      if (hist.length) {
+        const h = document.createElement("p");
+        h.className = "tiny muted"; h.style.marginTop = "14px";
+        h.textContent = `🛡 Niezmienialna historia kopii (${hist.length}) — nie da się jej skasować ani nadpisać:`;
+        box.appendChild(h);
+        for (const v of hist) {
+          const row = document.createElement("div");
+          row.className = "attach-row";
+          row.innerHTML = `<div class="attach-info">🕘 <span class="tiny muted">${v.updatedAt ? new Date(v.updatedAt).toLocaleString("pl-PL") : esc(v.id)}</span></div><button class="btn">⬇ Przywróć</button>`;
+          row.querySelector("button").addEventListener("click", async () => {
+            if (!confirm(`Przywrócić kopię z ${v.updatedAt ? new Date(v.updatedAt).toLocaleString("pl-PL") : v.id}?\n\nZastąpi WSZYSTKIE dane na tym urządzeniu.`)) return;
+            try { const data = await fbDownloadHistory(v.id); await applyBackup(data.payload); alert("Kopia przywrócona. Zaloguj się ponownie."); location.reload(); }
+            catch (e) { alert("Błąd przywracania: " + e.message); }
+          });
+          box.appendChild(row);
+        }
+      }
+    } catch (e) { /* brak historii / brak uprawnień — nie blokuje listy urządzeń */ }
   } catch (e) { box.innerHTML = `<p class="error">Błąd: ${esc(e.message)}</p>`; }
 });
 
@@ -643,6 +707,11 @@ async function syncPush(manual) {
     if (fb) {
       await fbUpload(rec);
       S.config.lastSync = rec.updatedAt;
+      // A+B: niezmienialna migawka (ręcznie zawsze, automatycznie max raz na ~20 h)
+      const lastSnap = S.config.lastSnapshot ? Date.parse(S.config.lastSnapshot) : 0;
+      if (manual || !lastSnap || Date.now() - lastSnap > 20 * 60 * 60 * 1000) {
+        try { await fbSnapshotHistory(rec); S.config.lastSnapshot = rec.updatedAt; } catch (e) { /* historia nie blokuje bieżącej kopii */ }
+      }
     } else {
       const resp = await fetch(c.url.replace(/\/+$/, "") + "/api/sync", { method: "POST", headers: { "Content-Type": "application/json", "X-Sync-Key": c.key }, body: JSON.stringify(rec) });
       const out = await resp.json(); if (!resp.ok) throw new Error(out.error || resp.status);
@@ -1045,7 +1114,7 @@ $("btn-save").addEventListener("click", async () => {
     } else {
       await tx("outbox", "readwrite", s => s.put({ id: record.id, to: emailRaw, name: `${w.person.first} ${w.person.last}`, queuedAt: new Date().toISOString(), status: "oczekuje" }));
       $("done-info").textContent = base + ` · Kopia dla ${emailRaw} w kolejce.`;
-      if (syncCfg().autoEmail) {
+      if (syncCfg().autoEmail !== false) {
         serverEmail(record).then(ok => {
           $("done-info").textContent = base + (ok
             ? ` · ✉ Kopia wysłana e-mailem na ${emailRaw}.`
@@ -1066,12 +1135,14 @@ $("btn-done-home").addEventListener("click", enterHome);
 /* automatyczna wysyłka e-mail przez serwer (SMTP po stronie serwera) */
 async function serverEmail(r) {
   const c = syncCfg();
-  if (!c.url || !c.key || !isValidEmail(r.person.email) || !navigator.onLine) return false;
+  const url = (c.url && c.url.trim()) || RENDER_URL;
+  const smtp = buildSmtp();
+  if (!smtp || !isValidEmail(r.person.email) || !navigator.onLine) return false;
   try {
     const bytes = await buildPDF(r);
-    const resp = await fetch(c.url.replace(/\/+$/, "") + "/api/email", {
+    const resp = await fetch(url.replace(/\/+$/, "") + "/api/email", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-Sync-Key": c.key },
+      headers: c.key ? { "Content-Type": "application/json", "X-Sync-Key": c.key } : { "Content-Type": "application/json" },
       body: JSON.stringify({
         to: r.person.email,
         subject: `Kopia podpisanej zgody — ${r.projectName}`,
@@ -1124,7 +1195,7 @@ async function markSent(id, status) {
 let flushing = false;
 async function flushOutbox() {
   const c = syncCfg();
-  if (flushing || !c.url || !c.key || !c.autoEmail || !navigator.onLine || !S.key) return;
+  if (flushing || c.autoEmail === false || !buildSmtp() || !navigator.onLine || !S.key) return;
   flushing = true;
   try {
     for (const o of await getAll("outbox")) {
