@@ -474,3 +474,108 @@ details.adv summary b { color: var(--ink-2); }
   .wnav .btn { width: 100%; }
   .done-actions { max-width: 100%; }
 }
+
+/* ====================================================================
+   PRECYZYJNY PASS v2 — dopasowanie 1:1 do wzorca SignOff-static.html
+   Wyłącznie wizualne / addytywne. Bez zmiany id i logiki.
+   ==================================================================== */
+
+/* ---------- Logowanie: etykiety KONTO/PIN + selektor konta + reset ---------- */
+.lock-field-lbl { text-align: left; margin: 16px 0 7px; display: block; }
+#loginbox .single-account,
+#loginbox #account-select { margin-top: 0; }
+/* selektor konta jako karta z obrysem akcentu (wzorzec) */
+#loginbox .single-account {
+  display: flex; align-items: center; justify-content: space-between; gap: 13px;
+  border: 1px solid var(--accent-line-strong); background: var(--card-flat-2);
+  border-radius: 14px; padding: 15px 18px;
+}
+#loginbox .single-account::after {
+  content: "▾"; color: var(--accent); font-size: 1rem; flex: 0 0 auto;
+}
+#loginbox .single-account b { display: block; font-size: 1.06rem; }
+#loginbox .single-account .op-role { display: block; margin-top: 2px; }
+/* gdy >1 konto: select w stylu karty z obrysem akcentu */
+#loginbox #account-select { border: 1px solid var(--accent-line-strong); background: var(--card-flat-2); }
+.pin-input { margin-top: 0; }
+.lock-reset { margin-top: 13px; font-size: .82rem; color: var(--ink-2); text-align: center; }
+.lock-reset b { color: var(--accent); font-weight: 600; }
+#login-hint { text-align: center; }
+
+/* ---------- Karta dowodowa (ekran „Zgoda zapisana") ---------- */
+.evidence-card {
+  width: 100%; max-width: 420px; margin: 4px auto 20px; text-align: left;
+  background: var(--card-flat); border: 1px solid var(--line); border-radius: 16px; padding: 16px;
+}
+.evidence-card[hidden] { display: none; }
+.evidence-row {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  padding-bottom: 11px; margin-bottom: 11px; border-bottom: 1px solid var(--line);
+}
+.evidence-k { font-family: var(--mono); font-size: .62rem; letter-spacing: .08em; color: var(--muted); text-transform: uppercase; }
+.evidence-id { font-family: var(--mono); font-size: .7rem; color: var(--accent); }
+.evidence-card .evidence-k:not(:first-child) { margin-bottom: 5px; }
+.evidence-hash {
+  font-family: var(--mono); font-size: .68rem; color: var(--ink-2); line-height: 1.5;
+  word-break: break-all; margin-bottom: 13px;
+}
+.evidence-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.ev-pill {
+  font-family: var(--mono); font-size: .58rem; letter-spacing: .04em;
+  padding: 4px 8px; border-radius: 6px;
+}
+.ev-pill.chain, .ev-pill.aes { color: #3f8a5c; background: rgba(63,138,92,.12); }
+.ev-pill.sync { color: var(--accent); background: rgba(52,205,146,.12); }
+.ev-pill.audit { color: var(--ink-2); background: rgba(255,255,255,.05); }
+
+.done-secondary { display: flex; gap: 10px; }
+.done-secondary .btn { flex: 1; }
+@media (max-width: 560px) { .done-secondary { flex-direction: column; } }
+
+/* ---------- Lista zgód: avatar statusu + plakietki pod spodem (wzorzec) ---------- */
+.record { align-items: center; }
+.rec-avatar {
+  width: 34px; height: 34px; flex: 0 0 34px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center; font-size: .95rem;
+}
+.rec-avatar.ok { background: rgba(65,227,164,.14); color: var(--accent-bright); }
+.rec-avatar.warn { background: rgba(188,230,79,.14); color: var(--lime); }
+.rec-avatar.err { background: rgba(232,144,143,.14); color: var(--bad); }
+.record .who { flex: 1; min-width: 0; }
+/* plakietki statusu jako rząd pod metadanymi (Space Mono, kolory wzorca) */
+.record .marks { justify-content: flex-end; flex: 0 0 auto; align-self: center; }
+.record .marks .badge {
+  font-size: .55rem; letter-spacing: .04em; padding: 3px 8px; border-radius: 6px; font-weight: 400;
+}
+.record .marks .badge.ok { color: var(--accent-bright); background: rgba(65,227,164,.15); }
+.record .marks .badge.revoked { color: var(--bad); background: rgba(232,144,143,.15); }
+.record .marks .badge.planned { color: var(--ink-2); background: rgba(255,255,255,.06); }
+
+/* ---------- Nagłówki sekcji w Space Mono (spójnie z wzorcem) ---------- */
+#view-settings h3 {
+  font-family: var(--mono); font-size: .7rem; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--muted); font-weight: 700; margin-top: 20px;
+}
+
+/* ---------- Segmentowany wybór / toggle / chipy (Nowy projekt, Admin) ---------- */
+.seg { display: flex; gap: 7px; }
+.seg > * {
+  flex: 1; text-align: center; padding: 10px 0; border-radius: 11px;
+  background: var(--card-flat); color: var(--ink-2); font-size: .85rem; cursor: pointer; border: none;
+}
+.seg > .on { background: var(--accent); color: var(--on-accent); font-weight: 600; }
+
+/* ---------- Kreator treść: gradientowy fade na dole pola treści (wzorzec) ---------- */
+#consent-text { position: relative; }
+#consent-text::after {
+  content: ""; position: sticky; display: block; left: 0; right: 0; bottom: 0;
+  height: 56px; margin-top: -56px; pointer-events: none;
+  background: linear-gradient(to top, var(--bg-screen) 8%, rgba(15,29,51,0));
+  border-radius: 0 0 14px 14px;
+}
+/* plakietki OBOWIĄZKOWE / DOBROWOLNE przy checkboxach zgód (Space Mono, wzorzec) */
+#consent-checks .req-star {
+  display: inline-block; margin-top: 6px; font-family: var(--mono);
+  font-size: .6rem; letter-spacing: .04em; padding: 2px 8px; border-radius: 5px;
+  background: var(--accent); color: var(--on-accent);
+}

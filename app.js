@@ -1719,3 +1719,53 @@ boot();
   new MutationObserver(sync).observe(stepsEl, { childList: true });
   sync();
 })();
+
+/* ===== Dekoracja: karta dowodowa na ekranie „Zgoda zapisana" =====
+   Czysto wizualna. Obserwuje #done-info (tekst ustawiany przez logikę zapisu,
+   format: „ID: <id> · SHA-256: <hash>… · …") i wyciąga ID oraz skrót do karty
+   dowodowej zgodnej z wzorcem. Nie zmienia logiki — tylko prezentuje. */
+(function () {
+  const info = document.getElementById("done-info");
+  const card = document.getElementById("evidence-card");
+  if (!info || !card) return;
+  const idEl = document.getElementById("evidence-id");
+  const hashEl = document.getElementById("evidence-hash");
+  const sync = () => {
+    const t = info.textContent || "";
+    const idM = t.match(/ID:\s*([^\s·]+)/);
+    const shM = t.match(/SHA-256:\s*([0-9a-fA-F]+)/);
+    if (idM && shM) {
+      if (idEl) idEl.textContent = idM[1];
+      if (hashEl) hashEl.textContent = shM[1];
+      card.hidden = false;
+    } else {
+      card.hidden = true;
+    }
+  };
+  new MutationObserver(sync).observe(info, { childList: true, characterData: true, subtree: true });
+  sync();
+})();
+
+/* ===== Dekoracja: avatar statusu na kafelkach listy zgód =====
+   Czysto wizualna. Po renderze listy (#records-list) dodaje przed każdym
+   wierszem ikonę-awatar statusu (✓ podpisano / ⚠ błąd) zgodnie z wzorcem.
+   Nie zmienia treści, danych ani obsługi kliknięć wiersza. */
+(function () {
+  const listEl = document.getElementById("records-list");
+  if (!listEl) return;
+  const decorate = () => {
+    listEl.querySelectorAll(".record").forEach(row => {
+      if (row.querySelector(".rec-avatar")) return;
+      const av = document.createElement("div");
+      av.className = "rec-avatar";
+      const revoked = row.querySelector(".badge.revoked");
+      const corrupt = /nieodczytywaln/i.test(row.textContent || "");
+      if (corrupt) { av.classList.add("err"); av.textContent = "⚠"; }
+      else if (revoked) { av.classList.add("warn"); av.textContent = "↺"; }
+      else { av.classList.add("ok"); av.textContent = "✓"; }
+      row.insertBefore(av, row.firstChild);
+    });
+  };
+  new MutationObserver(decorate).observe(listEl, { childList: true });
+  decorate();
+})();

@@ -41,10 +41,13 @@
     <!-- normalne logowanie -->
     <div id="loginbox">
       <p class="muted" id="login-hint">Wybierz konto i podaj PIN.</p>
+      <div class="field-label lock-field-lbl">KONTO</div>
       <div id="account-area"></div>
+      <div class="field-label lock-field-lbl">PIN</div>
       <input type="password" id="lock-pin" inputmode="numeric" autocomplete="current-password" placeholder="PIN" class="pin-input">
       <p id="lock-error" class="error" hidden></p>
       <button class="btn primary big" id="btn-unlock">Zaloguj</button>
+      <p class="lock-reset">Nie pamiętasz PIN-u? <b>Poproś administratora o reset</b></p>
     </div>
 
     <p class="tiny muted">Tryb offline ✓ · AES-256-GCM ✓ · Blokada po 5 błędnych próbach ✓ · Kopia w chmurze E2E ✓</p>
@@ -203,11 +206,27 @@
       <div class="done">
         <div class="done-icon">✅</div>
         <h2>Zgoda zapisana i zabezpieczona</h2>
+        <div class="evidence-card" id="evidence-card" aria-hidden="true" hidden>
+          <div class="evidence-row">
+            <span class="evidence-k">ID DOKUMENTU</span>
+            <span class="evidence-id" id="evidence-id"></span>
+          </div>
+          <div class="evidence-k">SHA-256</div>
+          <div class="evidence-hash" id="evidence-hash"></div>
+          <div class="evidence-pills">
+            <span class="ev-pill chain">🔗 ŁAŃCUCH +1</span>
+            <span class="ev-pill aes">🔐 AES-256</span>
+            <span class="ev-pill sync">☁ ZSYNCHRONIZOWANO</span>
+            <span class="ev-pill audit">🧾 AUDIT</span>
+          </div>
+        </div>
         <p class="muted" id="done-info"></p>
         <div class="done-actions">
-          <button class="btn primary big" id="btn-done-pdf">⬇ Pobierz PDF</button>
-          <button class="btn big" id="btn-done-share">📤 Wyślij / udostępnij</button>
-          <button class="btn big" id="btn-done-next">＋ Następna osoba</button>
+          <button class="btn primary big" id="btn-done-next">＋ Następna osoba</button>
+          <div class="done-secondary">
+            <button class="btn big" id="btn-done-share">📤 Wyślij / udostępnij</button>
+            <button class="btn big" id="btn-done-pdf">⬇ Pobierz PDF</button>
+          </div>
           <button class="btn ghost big" id="btn-done-home">Lista zgód</button>
         </div>
       </div>
