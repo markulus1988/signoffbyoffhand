@@ -1635,7 +1635,7 @@ function renderProjects() {
       <div class="wnav-mini">
         <button class="btn" data-act="savetext">💾 Zapisz</button>
         <button class="btn" data-act="addfile">📎 Dodaj plik PDF do podpisu</button>
-        ${S.vault.projects.length > 1 ? '<button class="btn danger" data-act="del">🗑 Usuń projekt</button>' : ""}
+        <button class="btn danger" data-act="del">🗑 Usuń projekt</button>
       </div>
       <input type="file" accept="application/pdf" hidden>`;
     // zdjęcie obowiązkowe
