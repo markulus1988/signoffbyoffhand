@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3. Wysyłka maili — SignOff</title>
+<link rel="stylesheet" href="doc.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="docnav">
+    <a class="home" href="index.html"><img src="img/offhand.png" alt="Offhand"><span class="nm">Sign<b>Off</b> <span>· Pomoc</span></span></a>
+    <a class="back" href="index.html">← Spis treści</a>
+  </header>
+
+  <h1>3. Wysyłka maili — ustaw RAZ</h1>
+  <p class="lead">Żeby kopie zgód mogły iść e-mailem z Twojego adresu <code>hankanobis@offhandfilms.com</code>, trzeba raz połączyć aplikację z pocztą. Adres jest już wpisany — Ty dodajesz tylko <b>„hasło aplikacji"</b> z Google. To dwa etapy, w sumie ok. 5 minut.</p>
+
+  <div class="box warn"><b>Dlaczego nie zwykłe hasło?</b> Google ze względów bezpieczeństwa nie pozwala aplikacjom używać Twojego zwykłego hasła. Zamiast tego tworzy się osobny, jednorazowy 16-znakowy kod („hasło aplikacji"), który w każdej chwili można unieważnić bez ruszania głównego hasła.</div>
+
+  <h2>Etap A — utwórz „hasło aplikacji" w Google</h2>
+  <p>Zaloguj się jako <b>hankanobis@offhandfilms.com</b> i po kolei:</p>
+  <div class="step"><span class="num">1</span>Wejdź na <a href="https://myaccount.google.com/security">myaccount.google.com/security</a> → włącz <b>Weryfikację dwuetapową</b> (jeśli nie jest włączona). Bez niej hasła aplikacji nie istnieją.</div>
+  <div class="step"><span class="num">2</span>Wejdź na <a href="https://myaccount.google.com/apppasswords">myaccount.google.com/apppasswords</a>.</div>
+  <div class="step"><span class="num">3</span>Wpisz nazwę <b>SignOff</b> → kliknij <b>Utwórz</b>.</div>
+  <div class="step"><span class="num">4</span>Google pokaże <b>16-znakowy kod</b> (np. <code>abcd efgh ijkl mnop</code>) — <b>skopiuj go</b>. Spacje nie mają znaczenia.</div>
+
+  <h2>Etap B — wklej go w aplikacji</h2>
+  <div class="step"><span class="num">1</span>W aplikacji dotknij <b>⚙ (Ustawienia)</b> w prawym górnym rogu.</div>
+  <div class="step"><span class="num">2</span>Znajdź sekcję <b>„✉ Wysyłka e-mail do podpisujących"</b>.</div>
+  <div class="step"><span class="num">3</span><b>Adres e-mail nadawcy</b> jest już wpisany: <code>hankanobis@offhandfilms.com</code>.</div>
+  <div class="step"><span class="num">4</span>W polu <b>Hasło</b> wklej te 16 znaków (to hasło aplikacji, nie zwykłe hasło).</div>
+  <div class="step"><span class="num">5</span>Dotknij <b>💾 Zapisz nadawcę</b>.</div>
+  <div class="step"><span class="num">6</span>Dotknij <b>✉ Wyślij test</b> → wpisz dowolny swój adres → sprawdź, czy wiadomość dotarła (zajrzyj też do folderu SPAM).</div>
+
+  <div class="box ok"><b>Gotowe!</b> Od tej chwili po każdej podpisanej zgodzie (gdy podasz e-mail osoby) kopia PDF wysyła się <b>sama</b>. Serwer i port wykrywają się automatycznie — nie musisz nic więcej wpisywać. Upewnij się, że w Ustawieniach zaznaczony jest haczyk <b>„Wysyłaj kopię PDF e-mailem automatycznie"</b>.</div>
+
+  <h2>Gdyby coś nie działało</h2>
+  <ul>
+    <li><b>Brak opcji „Hasła aplikacji" w Google</b> → administrator konta firmowego offhandfilms.com ma ją wyłączoną. Trzeba poprosić go o włączenie (albo daj znać Markowi — dobierze inne rozwiązanie).</li>
+    <li><b>Test pokazuje błąd</b> pod przyciskiem → zrób zdjęcie tego komunikatu i wyślij Markowi. Najczęstsza przyczyna to literówka w haśle aplikacji.</li>
+    <li><b>Mail dotarł do SPAM-u</b> → to normalne przy pierwszych wysyłkach; oznacz „to nie spam", z czasem przestanie.</li>
+  </ul>
+
+  <div class="pager"><a class="back" href="obsluga.html">← Zbieranie zgody</a><a href="kopia.html">Dalej: Kopia w chmurze →</a></div>
+  <footer>SignOff by Offhand · dla Hanny Nobis · od Marka</footer>
+</div>
+</body>
+</html>
