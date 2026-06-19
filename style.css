@@ -599,6 +599,10 @@ details.adv summary b { color: var(--ink-2); }
 .spill.cloud { color: var(--accent-bright); background: rgba(52,205,146,.13); }
 .spill.nocloud { color: #e0a35a; background: rgba(217,131,36,.14); }
 .bulk-actions .bulk-del { background: rgba(232,144,143,.18); color: #f0b6b5; }
+.pd-block { margin: 12px 0; }
+.pd-block select, .pd-block input { width: 100%; margin: 6px 0; }
+.pd-block .btn { width: 100%; margin-top: 8px; }
+.pd-or { text-align: center; color: var(--muted); font-size: .8rem; margin: 12px 0; font-family: var(--mono); letter-spacing: .1em; }
 
 /* plakietki statusu pod imieniem */
 .spills { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }

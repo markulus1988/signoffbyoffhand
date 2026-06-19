@@ -1387,6 +1387,34 @@ async function snapshotNow() {
     return true;
   } catch { return false; }
 }
+/* Po legalnym (administratorskim) usunięciu lub przeniesieniu zgód łańcuch
+   integralności trzeba przeliczyć od nowa, żeby „Weryfikuj integralność” był
+   zielony. Dowodem sprzed zmiany pozostaje niezmienialna kopia w chmurze. */
+async function rebuildChain() {
+  const rows = (await getAll("records")).sort((a, b) => (a.seq || 0) - (b.seq || 0));
+  let prev = "GENESIS";
+  for (const row of rows) {
+    const chain = await sha256hex(prev + row.recordHash);
+    if (chain !== row.chain) { row.chain = chain; await tx("records", "readwrite", s => s.put(row)); }
+    prev = chain;
+  }
+  S.config.chainHead = prev;
+  await saveConfig();
+}
+/* Przeniesienie zgód do innego projektu — przeszyfrowuje rekord z nowym
+   projectId i przelicza jego hash; spójność łańcucha naprawia rebuildChain. */
+async function moveRecordsToProject(recs, targetId, targetName) {
+  for (const r of recs) {
+    const row = await storeGet("records", r.id);
+    if (!row) continue;
+    const rec = await decryptJSON(S.key, row.pack);
+    rec.projectId = targetId; rec.projectName = targetName;
+    rec.hash = await sha256hex(JSON.stringify({ ...rec, hash: undefined }));
+    row.pack = await encryptJSON(S.key, rec);
+    row.recordHash = rec.hash;
+    await tx("records", "readwrite", s => s.put(row));
+  }
+}
 /* Czy zgoda ma już kopię w chmurze (była objęta ostatnią udaną synchronizacją). */
 function isBackedUp(r) {
   return !!fbCfg() && !!S.config.lastSync && (r.createdAt || "") <= S.config.lastSync;
@@ -1412,11 +1440,88 @@ async function deleteRecords(recs) {
   for (const r of recs) { await tx("records", "readwrite", s => s.delete(r.id)); try { await tx("outbox", "readwrite", s => s.delete(r.id)); } catch {} }
   const ids = new Set(recs.map(r => r.id));
   S.records = S.records.filter(x => !ids.has(x.id));
+  await rebuildChain();
   S.selectMode = false; if (S.selected) S.selected.clear();
   scheduleSync();
   enterHome();
 }
 async function deleteRecord(r) { return deleteRecords([r]); }
+
+/* Usuwanie projektu (admin): najpierw decyzja o zgodach — przenieś do innego/
+   nowego projektu albo usuń razem. Zawsze z kopią w chmurze i przebudową łańcucha. */
+function openProjectDelete(p) {
+  if (!isAdmin()) return;
+  const recs = S.records.filter(x => x.projectId === p.id && !x.corrupted);
+  const others = (S.vault.projects || []).filter(x => x.id !== p.id);
+  const cloud = !!fbCfg();
+  const ov = document.createElement("div");
+  ov.className = "cam-help";
+  const opts = others.map(o => `<option value="${o.id}">${esc(o.name)}</option>`).join("") + `<option value="__new__">➕ Nowy projekt roboczy…</option>`;
+  ov.innerHTML = `<div class="cam-help-card rodo-modal-card" style="text-align:left">
+    <h3>Usuń projekt „${esc(p.name)}”</h3>
+    ${recs.length ? `
+      <p class="tiny" style="color:var(--ink-2)">Ten projekt ma <b>${recs.length}</b> ${recs.length === 1 ? "zgodę" : "zgód"}. Najpierw zdecyduj, co z nimi — żeby nic nie zginęło przez przypadek.</p>
+      <div class="pd-block">
+        <div class="field-label">Przenieś zgody do</div>
+        <select id="pd-target">${opts}</select>
+        <input id="pd-newname" type="text" placeholder="Nazwa nowego projektu roboczego" hidden>
+        <button class="btn primary big" id="pd-move">Przenieś zgody i usuń projekt</button>
+      </div>
+      <div class="pd-or">— albo —</div>
+      <button class="btn danger" id="pd-delall" style="width:100%">🗑 Usuń projekt razem ze zgodami (${recs.length})</button>
+    ` : `
+      <p class="tiny" style="color:var(--ink-2)">Projekt nie ma żadnych zgód.</p>
+      <button class="btn danger" id="pd-delempty" style="width:100%">🗑 Usuń projekt</button>
+    `}
+    <p class="tiny" style="color:var(--muted);margin-top:12px">${cloud ? "Przed usunięciem zapiszę kopię w chmurze — będzie ODWRACALNE (Przywróć z chmury)." : "⚠ Chmura wyłączona — usunięcie będzie NIEODWRACALNE."}</p>
+    <div class="cam-help-actions"><button class="btn" id="pd-cancel">Anuluj</button></div>
+  </div>`;
+  document.body.appendChild(ov);
+  const close = () => ov.remove();
+  ov.addEventListener("click", e => { if (e.target === ov) close(); });
+  ov.querySelector("#pd-cancel").addEventListener("click", close);
+  const tgt = ov.querySelector("#pd-target");
+  if (tgt) tgt.addEventListener("change", () => { ov.querySelector("#pd-newname").hidden = tgt.value !== "__new__"; });
+  async function removeProject() {
+    S.vault.projects = S.vault.projects.filter(x => x.id !== p.id);
+    if (S.vault.activeProjectId === p.id) S.vault.activeProjectId = (S.vault.projects[0] && S.vault.projects[0].id) || null;
+    await saveVault();
+  }
+  const moveBtn = ov.querySelector("#pd-move");
+  if (moveBtn) moveBtn.addEventListener("click", async () => {
+    let targetId = tgt.value, targetName;
+    if (targetId === "__new__") {
+      const nm = ov.querySelector("#pd-newname").value.trim();
+      if (!nm) { alert("Podaj nazwę nowego projektu roboczego."); return; }
+      targetId = uuid(); targetName = nm;
+      S.vault.projects.push({ id: targetId, name: nm, customText: "", files: [], allowedUserIds: [], requirePhoto: false });
+    } else { const t = others.find(o => o.id === targetId); targetName = t ? t.name : ""; }
+    moveBtn.disabled = true; moveBtn.textContent = "Przenoszę…";
+    if (cloud) { const ok = await snapshotNow(); if (!ok && !confirm("Nie udało się zapisać kopii w chmurze. Kontynuować mimo to?")) { moveBtn.disabled = false; moveBtn.textContent = "Przenieś zgody i usuń projekt"; return; } }
+    await moveRecordsToProject(recs, targetId, targetName);
+    await removeProject();
+    await rebuildChain();
+    await loadRecords();
+    close(); scheduleSync(); enterSettings();
+    alert(`Przeniesiono ${recs.length} ${recs.length === 1 ? "zgodę" : "zgód"} do „${targetName}” i usunięto projekt.`);
+  });
+  const delAll = ov.querySelector("#pd-delall");
+  if (delAll) delAll.addEventListener("click", async () => {
+    if (!confirm(`Na pewno usunąć projekt „${p.name}” RAZEM z ${recs.length} ${recs.length === 1 ? "zgodą" : "zgód"}?` + (cloud ? "\n\nKopia w chmurze pozwoli to odtworzyć." : "\n\n⚠ NIEODWRACALNE — chmura wyłączona."))) return;
+    if (cloud) { const ok = await snapshotNow(); if (!ok && !confirm("Nie udało się zapisać kopii w chmurze. Usunąć mimo to — NIEODWRACALNIE?")) return; }
+    for (const r of recs) { await tx("records", "readwrite", s => s.delete(r.id)); try { await tx("outbox", "readwrite", s => s.delete(r.id)); } catch {} }
+    S.records = S.records.filter(x => x.projectId !== p.id);
+    await removeProject();
+    await rebuildChain();
+    close(); scheduleSync(); enterSettings();
+  });
+  const delEmpty = ov.querySelector("#pd-delempty");
+  if (delEmpty) delEmpty.addEventListener("click", async () => {
+    if (cloud) await snapshotNow();
+    await removeProject();
+    close(); scheduleSync(); enterSettings();
+  });
+}
 
 async function revokeRodo(r) {
   if (!confirm(`Odnotować cofnięcie zgody RODO przez ${r.person.first} ${r.person.last}?\n\nCofnięcie działa na przyszłość — nie unieważnia zezwolenia art. 81 dla już wyprodukowanego materiału. Dokument pozostaje w archiwum jako dowód.`)) return;
@@ -1589,21 +1694,7 @@ function renderProjects() {
       renderProjects();
     });
     const del = card.querySelector("[data-act=del]");
-    if (del) del.addEventListener("click", async () => {
-      if (!isAdmin()) return;
-      const cloud = fbCfg();
-      const cnt = S.records.filter(x => x.projectId === p.id && !x.corrupted).length;
-      if (!confirm(`Usunąć projekt „${p.name}”${cnt ? ` wraz z jego zgodami (${cnt})` : ""}?\n\n` +
-        (cloud ? "Najpierw zapiszę niezmienialną kopię w chmurze — będzie ją można odtworzyć przez „Przywróć z chmury”." :
-                 "⚠ Chmura nie jest włączona — usunięcie będzie nieodwracalne na tym urządzeniu."))) return;
-      if (cloud) { const ok = await snapshotNow(); if (!ok && !confirm("Nie udało się zapisać kopii w chmurze. Usunąć mimo to (nieodwracalnie)?")) return; }
-      const ids = S.records.filter(x => x.projectId === p.id).map(x => x.id);
-      for (const id of ids) { await tx("records", "readwrite", s => s.delete(id)); try { await tx("outbox", "readwrite", s => s.delete(id)); } catch {} }
-      S.records = S.records.filter(x => x.projectId !== p.id);
-      S.vault.projects = S.vault.projects.filter(x => x.id !== p.id);
-      if (S.vault.activeProjectId === p.id) S.vault.activeProjectId = (S.vault.projects[0] && S.vault.projects[0].id) || null;
-      await saveVault(); scheduleSync(); renderProjects();
-    });
+    if (del) del.addEventListener("click", () => openProjectDelete(p));
     box.appendChild(card);
   }
 }
