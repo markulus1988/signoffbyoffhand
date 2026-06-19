@@ -499,7 +499,7 @@ details.adv summary b { color: var(--ink-2); }
 /* gdy >1 konto: select w stylu karty z obrysem akcentu */
 #loginbox #account-select { border: 1px solid var(--accent-line-strong); background: var(--card-flat-2); }
 .pin-input { margin-top: 0; }
-.lock-reset { margin-top: 13px; font-size: .82rem; color: var(--ink-2); text-align: center; }
+.lock-reset { margin: 14px 0 0; font-size: .82rem; color: var(--ink-2); text-align: center; line-height: 1.8; }
 .lock-reset b { color: var(--accent); font-weight: 600; }
 #login-hint { text-align: center; }
 
@@ -653,6 +653,7 @@ details.adv summary b { color: var(--ink-2); }
 .topbar-right { display: flex; align-items: center; gap: 8px; }
 .hb-sync { font-family: var(--mono); font-size: .62rem; color: var(--ink-2); white-space: nowrap; }
 .hb-chip { font-family: var(--mono); font-size: .58rem; letter-spacing: .08em; text-transform: uppercase; color: var(--on-accent); background: var(--accent); padding: 4px 9px; border-radius: 20px; white-space: nowrap; }
+.hb-name { font-family: var(--mono); font-size: .64rem; color: var(--ink); font-weight: 600; letter-spacing: .02em; white-space: nowrap; max-width: 13ch; overflow: hidden; text-overflow: ellipsis; }
 .hb-net, #net-status { display: none; }
 .hb-icon { width: 32px; height: 32px; flex: 0 0 32px; border-radius: 9px; background: rgba(255,255,255,.05); border: none; cursor: pointer; color: var(--ink-2); display: flex; align-items: center; justify-content: center; padding: 0; }
 .hb-icon.logout { color: var(--logout); }

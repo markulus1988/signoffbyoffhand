@@ -50,7 +50,7 @@
       </div>
       <p id="lock-error" class="error" hidden></p>
       <button class="btn primary big" id="btn-unlock">Zaloguj</button>
-      <p class="lock-reset">Nie pamiętasz PIN-u? <b>Poproś administratora o reset</b></p>
+      <p class="lock-reset">Nie pamiętasz PIN-u?<br><b>Poproś administratora o reset</b></p>
     </div>
 
     <p class="tiny muted">Tryb offline ✓ · AES-256-GCM ✓ · Blokada po 5 błędnych próbach ✓ · Kopia w chmurze E2E ✓</p>
@@ -75,6 +75,7 @@
     <div class="topbar-brand"><img class="brand-mark-lead" src="icons/offhand-mark-cream.png" alt=""><div class="wordmark sm"><span class="nm">Sign<b>Off</b></span><span class="by">by OFFHAND</span></div></div>
     <div class="topbar-right">
       <span id="sync-badge" class="hb-sync" data-help="Stan kopii w chmurze. Godzina = ostatnia udana synchronizacja; „oczekuje” = wyśle przy najbliższym połączeniu.">☁ —</span>
+      <span id="user-name" class="hb-name" data-help="Zalogowany użytkownik."></span>
       <span id="user-badge" class="hb-chip" data-help="Twoja rola. Administrator ma pełne uprawnienia; pracownik zbiera zgody."></span>
       <span id="net-status" class="hb-net" data-help="Stan połączenia z internetem.">offline</span>
       <button class="hb-icon" id="btn-settings" aria-label="Ustawienia" data-help="Ustawienia: projekty, dokumenty, konta, chmura (administrator) oraz zmiana własnego PIN."><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" stroke="currentColor" stroke-width="1.6"/></svg></button>

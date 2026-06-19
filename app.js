@@ -384,6 +384,7 @@ function applyRole() {
   const ub = $("user-badge");
   ub.textContent = S.user.role === "support" ? "SUPPORT" : isAdmin() ? "ADMIN" : roleLabel(S.user.role).toUpperCase();
   ub.title = S.user.name + " · " + roleLabel(S.user.role);
+  const un = $("user-name"); if (un) un.textContent = S.user.name || "";
 }
 
 /* ===================== Ekran główny ===================== */
