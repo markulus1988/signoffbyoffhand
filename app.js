@@ -109,6 +109,34 @@ function allowedProjects() {
 async function saveVault() { await metaSet("vault", await encryptJSON(S.key, S.vault)); scheduleSync(); }
 async function saveConfig() { await metaSet("config", S.config); }
 
+/* ===================== Administratorzy danych (podmioty na zgodzie) =====================
+   Rejestr administratorów danych (RODO). Każda zgoda używa administratora przypisanego
+   do projektu, a jeśli projekt go nie ma — administratora domyślnego. */
+function normalizeVault(v) {
+  if (!v) return false;
+  let changed = false;
+  if (!Array.isArray(v.admins) || !v.admins.length) {
+    v.admins = [{ id: uuid(), name: v.producer || "Offhand Hanna Nobis", address: "", taxId: "", email: v.email || "" }];
+    changed = true;
+  }
+  if (!v.defaultAdminId || !v.admins.find(a => a.id === v.defaultAdminId)) { v.defaultAdminId = v.admins[0].id; changed = true; }
+  const dn = (v.admins.find(a => a.id === v.defaultAdminId) || v.admins[0]).name;
+  if (v.producer !== dn) { v.producer = dn; changed = true; } // mirror dla zgodności wstecznej
+  return changed;
+}
+function defaultAdmin() { return (S.vault.admins || []).find(a => a.id === S.vault.defaultAdminId) || (S.vault.admins || [])[0]; }
+function projectAdmin(proj) {
+  const byId = proj && proj.adminId && (S.vault.admins || []).find(a => a.id === proj.adminId);
+  return byId || defaultAdmin();
+}
+function adminLine(a) {
+  if (!a) return "";
+  let s = a.name || "";
+  if (a.address) s += ", " + a.address;
+  if (a.taxId) s += " (NIP/ID: " + a.taxId + ")";
+  return s;
+}
+
 /* ===================== Szablon zgody ===================== */
 const TEMPLATE_VERSION = "3.0-PL";
 function defaultClause(cfg, proj, p) {
@@ -127,7 +155,7 @@ function rodoClause(cfg) {
   return (
 `KLAUZULA INFORMACYJNA RODO (art. 13 RODO)
 
-1. Administratorem danych osobowych (w tym wizerunku) jest ${cfg.producer}.
+1. Administratorem danych osobowych (w tym wizerunku) jest ${cfg._admin ? adminLine(cfg._admin) : cfg.producer}.${cfg._admin && cfg._admin.email ? `\n   Kontakt w sprawie ochrony danych i realizacji praw: ${cfg._admin.email}.` : ""}
 2. Dane przetwarzane są w celu realizacji, promocji i eksploatacji projektu — na podstawie art. 6 ust. 1 lit. a RODO (zgoda) oraz art. 6 ust. 1 lit. f RODO (prawnie uzasadniony interes administratora).
 3. Dane mogą być przekazywane koproducentom, dystrybutorom, ubezpieczycielom i platformom emisyjnym — wyłącznie w zakresie niezbędnym do eksploatacji projektu.
 4. Dane będą przechowywane przez okres eksploatacji projektu, a dokument zgody — dodatkowo przez okres przedawnienia roszczeń.
@@ -140,8 +168,10 @@ INFORMACJA O PODPISIE ELEKTRONICZNYM
 Dokument podpisywany jest podpisem elektronicznym w formie dokumentowej (art. 77² Kodeksu cywilnego). Zapisywany jest wyłącznie obraz podpisu — aplikacja nie rejestruje danych biometrycznych. Dokument otrzymuje znacznik czasu, sumę kontrolną SHA-256 oraz kartę dowodową (audit trail). Kopia dokumentu zostanie przekazana podpisującemu.`);
 }
 function consentText(cfg, proj, p) {
-  const body = (proj.customText || "").trim() || defaultClause(cfg, proj, p);
-  return body + "\n\n" + rodoClause(cfg);
+  const admin = projectAdmin(proj);
+  const acfg = Object.assign({}, cfg, { producer: admin ? admin.name : cfg.producer, _admin: admin });
+  const body = (proj.customText || "").trim() || defaultClause(acfg, proj, p);
+  return body + "\n\n" + rodoClause(acfg);
 }
 
 /* ===================== Audit trail ===================== */
@@ -270,6 +300,7 @@ $("btn-setup").addEventListener("click", async () => {
   S.key = await importDEK(dekRaw);
   S.user = acc;
   S.vault = { producer: "Offhand Hanna Nobis", email: "", projects: [], activeProjectId: null, sync: { url: "", key: "", auto: true, autoEmail: true } };
+  normalizeVault(S.vault);
   await saveVault();
   enterHome();
 });
@@ -330,6 +361,7 @@ async function login() {
     acc.fails = 0; acc.lockUntil = 0;
     await saveConfig();
     S.vault = await decryptJSON(S.key, await metaGet("vault"));
+    if (normalizeVault(S.vault)) await saveVault();
     await loadRecords();
     enterHome();
   } catch {
@@ -403,7 +435,7 @@ function enterHome() {
     if (!projs.find(p => p.id === S.vault.activeProjectId)) S.vault.activeProjectId = projs[0].id;
     sel.innerHTML = projs.map(p => `<option value="${p.id}" ${p.id === S.vault.activeProjectId ? "selected" : ""}>${esc(p.name)}</option>`).join("");
   }
-  $("home-producer").textContent = S.vault.producer;
+  { const ap = activeProject(); $("home-producer").textContent = (ap ? projectAdmin(ap) : defaultAdmin() || {}).name || S.vault.producer; }
   renderStats(); renderList($("search").value);
   $("verify-result").hidden = true;
   updateSyncBadge();
@@ -1216,9 +1248,10 @@ $("btn-save").addEventListener("click", async () => {
   const w = S.wizard;
   try {
     auditEvent(w, "zapis", "zatwierdzono i zapisano dokument");
+    const wproj = S.vault.projects.find(p => p.id === w.projectId);
     const record = {
       id: w.id, createdAt: new Date().toISOString(), startedAt: w.startedAt,
-      projectId: w.projectId, projectName: w.projectName, producer: S.vault.producer,
+      projectId: w.projectId, projectName: w.projectName, producer: (projectAdmin(wproj) || {}).name || S.vault.producer,
       operator: S.user.name, operatorRole: S.user.role, operatorId: S.user.id,
       templateVersion: TEMPLATE_VERSION, templateText: w.templateText,
       person: w.person, consents: w.consents, attachments: w.attachments || [],
@@ -1543,7 +1576,7 @@ async function revokeRodo(r) {
 function enterSettings() {
   applyRole();
   if (isAdmin()) {
-    $("set-producer").value = S.vault.producer;
+    renderAdmins();
     const c = syncCfg();
     $("sync-url").value = c.url || "";
     $("sync-key").value = c.key || "";
@@ -1569,10 +1602,55 @@ function enterSettings() {
   show("view-settings");
 }
 $("btn-settings-back").addEventListener("click", enterHome);
-$("btn-set-save").addEventListener("click", async () => {
-  S.vault.producer = $("set-producer").value.trim() || S.vault.producer;
-  await saveVault();
-  enterHome();
+
+/* --- Rejestr administratorów danych (podmiotów na zgodzie) --- */
+function renderAdmins() {
+  const box = $("admins-list");
+  if (!box) return;
+  box.innerHTML = "";
+  for (const a of S.vault.admins) {
+    const isDef = a.id === S.vault.defaultAdminId;
+    const usedBy = S.vault.projects.filter(p => p.adminId === a.id).length;
+    const card = document.createElement("div");
+    card.className = "admin-card" + (isDef ? " is-default" : "");
+    card.innerHTML = `
+      <div class="admin-head">
+        <span class="admin-badge">${isDef ? "⭐ Domyślny" : "Administrator"}</span>
+        <span class="tiny muted">${usedBy ? usedBy + " proj." : ""}</span>
+      </div>
+      <label>Nazwa / firma<input class="a-name" value="${esc(a.name || "")}" placeholder="np. Offhand Hanna Nobis"></label>
+      <label>Adres siedziby<input class="a-addr" value="${esc(a.address || "")}" placeholder="ulica, kod, miasto"></label>
+      <label>NIP / identyfikator (NIP, CEIDG lub zagraniczny)<input class="a-tax" value="${esc(a.taxId || "")}" placeholder="np. 5213029719"></label>
+      <label>E-mail kontaktowy ds. danych (RODO)<input class="a-email" type="email" value="${esc(a.email || "")}" placeholder="np. rodo@offhand.pl"></label>
+      <div class="wnav-mini">
+        <button class="btn" data-act="save">💾 Zapisz</button>
+        ${isDef ? "" : `<button class="btn" data-act="default">⭐ Ustaw domyślnym</button>`}
+        ${isDef || S.vault.admins.length < 2 ? "" : `<button class="btn danger" data-act="del">🗑 Usuń</button>`}
+      </div>`;
+    card.querySelector("[data-act=save]").addEventListener("click", async () => {
+      a.name = card.querySelector(".a-name").value.trim() || a.name;
+      a.address = card.querySelector(".a-addr").value.trim();
+      a.taxId = card.querySelector(".a-tax").value.trim();
+      a.email = card.querySelector(".a-email").value.trim();
+      normalizeVault(S.vault); await saveVault(); renderAdmins();
+    });
+    const defBtn = card.querySelector("[data-act=default]");
+    if (defBtn) defBtn.addEventListener("click", async () => { S.vault.defaultAdminId = a.id; normalizeVault(S.vault); await saveVault(); renderAdmins(); });
+    const delBtn = card.querySelector("[data-act=del]");
+    if (delBtn) delBtn.addEventListener("click", async () => {
+      if (!confirm(`Usunąć administratora „${a.name}”? Projekty, które go używały, wrócą do domyślnego.`)) return;
+      S.vault.admins = S.vault.admins.filter(x => x.id !== a.id);
+      S.vault.projects.forEach(p => { if (p.adminId === a.id) p.adminId = null; });
+      normalizeVault(S.vault); await saveVault(); renderAdmins();
+    });
+    box.appendChild(card);
+  }
+}
+$("btn-add-admin").addEventListener("click", async () => {
+  S.vault.admins.push({ id: uuid(), name: "Nowy administrator", address: "", taxId: "", email: "" });
+  await saveVault(); renderAdmins();
+  const last = $("admins-list").lastElementChild;
+  if (last) { last.scrollIntoView({ block: "center" }); const i = last.querySelector(".a-name"); if (i) { i.focus(); i.select(); } }
 });
 
 /* --- konfiguracja nadawcy e-mail (administrator) --- */
@@ -1632,6 +1710,13 @@ function renderProjects() {
       <label class="tiny">Własna treść zgody (puste = standardowa klauzula wizerunkowa; RODO dołączane zawsze)
         <textarea rows="3" placeholder="np. treść regulaminu wydarzenia…">${esc(p.customText || "")}</textarea>
       </label>
+      <label class="tiny">Administrator danych dla tego projektu (na zgodzie / w klauzuli RODO)
+        <select class="proj-admin">
+          <option value="">⭐ Domyślny (${esc((defaultAdmin() || {}).name || "")})</option>
+          ${S.vault.admins.map(a => `<option value="${a.id}" ${p.adminId === a.id ? "selected" : ""}>${esc(a.name)}</option>`).join("")}
+          <option value="__new">➕ Dodaj nowego administratora…</option>
+        </select>
+      </label>
       <div class="proj-allowed"><span class="tiny muted">Uprawnieni (nikt zaznaczony = wszyscy):</span></div>
       <label class="check tiny-check photo-req"><input type="checkbox" ${p.requirePhoto ? "checked" : ""}><span>📷 Zdjęcie-dowód <b>obowiązkowe</b> w tym projekcie</span></label>
       <div class="proj-rec">💡 Rekomendacja: dla bohaterów pierwszoplanowych i wywiadów włącz zdjęcie obowiązkowe — istotnie wzmacnia dowód udzielenia zgody. Dla scen z tłem / przechodniami wystarczy tryb zalecany (domyślny).</div>
@@ -1645,6 +1730,21 @@ function renderProjects() {
     // zdjęcie obowiązkowe
     card.querySelector(".photo-req input").addEventListener("change", async (e) => {
       p.requirePhoto = e.target.checked;
+      await saveVault();
+    });
+    // administrator danych dla projektu (wybór z listy lub dodanie nowego)
+    const adminSel = card.querySelector(".proj-admin");
+    adminSel.addEventListener("change", async (e) => {
+      if (e.target.value === "__new") {
+        const name = (prompt("Nazwa nowego administratora danych:") || "").trim();
+        if (!name) { e.target.value = p.adminId || ""; return; }
+        const na = { id: uuid(), name, address: "", taxId: "", email: "" };
+        S.vault.admins.push(na); p.adminId = na.id;
+        await saveVault(); renderProjects(); renderAdmins();
+        alert(`Dodano administratora „${name}". Uzupełnij jego adres / NIP / e-mail w sekcji „Administrator danych" powyżej.`);
+        return;
+      }
+      p.adminId = e.target.value || null;
       await saveVault();
     });
     // uprawnienia

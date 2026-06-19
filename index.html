@@ -269,12 +269,12 @@
 
     <div class="admin-only">
     <details class="set-group" id="grp-org" open>
-      <summary class="set-group-head"><span class="sg-ic">🏢</span><span class="sg-meta"><b>Firma i projekty</b><span>Nazwa producenta na zgodzie i projekty zbierania</span></span><span class="sg-chev">›</span></summary>
+      <summary class="set-group-head"><span class="sg-ic">🏢</span><span class="sg-meta"><b>Firma i projekty</b><span>Administrator danych na zgodzie i projekty zbierania</span></span><span class="sg-chev">›</span></summary>
       <div class="set-group-body">
-      <h4 class="set-sub">Firma / producent</h4>
-      <p class="tiny muted">Ta nazwa figuruje na <b>każdej podpisanej zgodzie</b> — w treści zezwolenia na wizerunek („…rozpowszechnianie przez …") oraz w klauzuli RODO jako administrator danych. Domyślnie: Offhand Hanna Nobis.</p>
-      <label>Nazwa firmy / producenta na zgodzie<input type="text" id="set-producer" placeholder="np. Offhand Hanna Nobis"></label>
-      <button class="btn primary" id="btn-set-save">Zapisz</button>
+      <h4 class="set-sub">Administrator danych (podmiot na zgodzie)</h4>
+      <p class="tiny muted">Podmiot, który figuruje na <b>każdej zgodzie jako administrator danych (RODO)</b> — z nazwą, adresem, NIP/identyfikatorem i e-mailem kontaktowym (do zgłaszania praw). Możesz mieć kilku i przypisywać różnych do projektów (w karcie projektu). „⭐ Domyślny" wchodzi tam, gdzie projekt nie ma własnego. <i>To podmiot prawny na zgodzie — nie mylić z rolą „administrator" konta w aplikacji.</i></p>
+      <div id="admins-list"></div>
+      <div class="add-box"><button class="btn" id="btn-add-admin">＋ Dodaj administratora</button></div>
 
       <h4 class="set-sub">Projekty zbierania zgód</h4>
       <p class="tiny muted">Projekt to zestaw ustawień jednego przedsięwzięcia (np. konkretnego filmu/eventu): własna treść zgody, dokumenty PDF do podpisu (z oznaczeniem obowiązkowych), wymóg zdjęcia-dowodu i lista pracowników, którzy mogą w nim zbierać (puste = wszyscy). Klauzula RODO i informacja o e-podpisie dołączane zawsze.</p>
