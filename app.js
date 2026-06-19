@@ -1374,7 +1374,7 @@ function enterSettings() {
     $("fb-status").textContent = "";
     $("fb-restore-list").innerHTML = "";
     const m = mailCfg() || {};
-    $("mail-email").value = m.email || ""; $("mail-pass").value = m.pass || "";
+    $("mail-email").value = m.email || "hankanobis@offhandfilms.com"; $("mail-pass").value = m.pass || "";
     $("mail-from").value = m.from || ""; $("mail-host").value = m.host || ""; $("mail-port").value = m.port || "";
     $("mail-status").textContent = "";
     renderProjects(); renderAccounts(); renderOutbox(); renderStorageInfo();
