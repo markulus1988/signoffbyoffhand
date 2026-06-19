@@ -705,7 +705,9 @@ async function fbDownloadHistory(id) {
   return { payload: JSON.parse(json) };
 }
 /* Domyślny adres serwera wysyłki e-mail (Render) — żeby maile działały bez ręcznego wpisywania adresu. */
-const RENDER_URL = "https://signoffbyoffhand.onrender.com";
+/* Adres Cloud Function wysyłającej maile (Firebase, region europe-west1).
+   Region/projekt muszą zgadzać się z deployem funkcji w functions/index.js. */
+const FN_EMAIL_URL = "https://europe-west1-signoff-offhand.cloudfunctions.net/sendEmail";
 
 function cloudEnabled() { return !!fbCfg() || !!(syncCfg().url && syncCfg().key); }
 
@@ -1217,27 +1219,25 @@ $("btn-done-home").addEventListener("click", enterHome);
 
 /* ===================== Wysyłka kopii ===================== */
 /* automatyczna wysyłka e-mail przez serwer (SMTP po stronie serwera) */
+/* Wysyłka maila przez Firebase Cloud Function (Resend po stronie serwera —
+   klucz API nigdy nie trafia do przeglądarki). Adres funkcji = FN_EMAIL_URL. */
 async function serverEmail(r) {
-  const c = syncCfg();
-  const url = (c.url && c.url.trim()) || RENDER_URL;
-  const smtp = buildSmtp();
-  if (!smtp || !isValidEmail(r.person.email) || !navigator.onLine) return false;
+  if (!isValidEmail(r.person.email) || !navigator.onLine) return false;
   try {
     const bytes = await buildPDF(r);
-    const resp = await fetch(url.replace(/\/+$/, "") + "/api/email", {
+    const resp = await fetch(FN_EMAIL_URL, {
       method: "POST",
-      headers: c.key ? { "Content-Type": "application/json", "X-Sync-Key": c.key } : { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         to: r.person.email,
         subject: `Kopia podpisanej zgody — ${r.projectName}`,
         text: `Dzień dobry,\n\nw załączeniu kopia zgody podpisanej w dniu ${new Date(r.createdAt).toLocaleString("pl-PL")}.\nID dokumentu: ${r.id}\nSHA-256: ${r.hash}\n\nPozdrawiamy,\n${r.producer}`,
         filename: `zgoda-${r.person.last}-${r.person.first}.pdf`.toLowerCase().replace(/\s+/g, "-"),
         pdfBase64: b64.enc(bytes),
-        smtp: buildSmtp(),
       }),
     });
     if (!resp.ok) return false;
-    await markSent(r.id, "wysłano e-mailem (serwer)");
+    await markSent(r.id, "wysłano e-mailem (Firebase)");
     return true;
   } catch { return false; }
 }
@@ -1279,7 +1279,7 @@ async function markSent(id, status) {
 let flushing = false;
 async function flushOutbox() {
   const c = syncCfg();
-  if (flushing || c.autoEmail === false || !buildSmtp() || !navigator.onLine || !S.key) return;
+  if (flushing || c.autoEmail === false || !navigator.onLine || !S.key) return;
   flushing = true;
   try {
     for (const o of await getAll("outbox")) {
