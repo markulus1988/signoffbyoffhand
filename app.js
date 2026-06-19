@@ -1329,14 +1329,44 @@ function showDetail(id) {
       <button class="btn primary" id="btn-detail-pdf">⬇ Pobierz PDF</button>
       <button class="btn" id="btn-detail-share">📤 Wyślij / udostępnij</button>
       ${r.status === "active" && isAdmin() ? '<button class="btn danger" id="btn-revoke">⛔ Odnotuj cofnięcie zgody RODO</button>' : ""}
+      ${isAdmin() ? '<button class="btn danger" id="btn-del-record" data-help="Trwale usuwa tę zgodę z urządzenia. Kopia trafia do niezmienialnej historii w chmurze — można ją odtworzyć przez „Przywróć z chmury”.">🗑 Usuń zgodę</button>' : ""}
     </div>`;
   $("btn-detail-pdf").addEventListener("click", () => downloadPDF(r));
   $("btn-detail-share").addEventListener("click", () => sharePDF(r));
   const rv = $("btn-revoke");
   if (rv) rv.addEventListener("click", () => revokeRodo(r));
+  const dr = $("btn-del-record");
+  if (dr) dr.addEventListener("click", () => deleteRecord(r));
   show("view-detail");
 }
 $("btn-detail-back").addEventListener("click", enterHome);
+
+/* Wymuszona, niezmienialna migawka stanu w chmurze — wołana PRZED usunięciem,
+   żeby usunięte dane dało się odtworzyć przez „Przywróć z chmury”. */
+async function snapshotNow() {
+  if (!fbCfg()) return false;
+  try {
+    const payload = await buildBackup();
+    const rec = { deviceId: S.config.deviceId, deviceName: S.config.deviceName, updatedAt: new Date().toISOString(), payload };
+    await fbSnapshotHistory(rec);
+    S.config.lastSnapshot = rec.updatedAt; await saveConfig();
+    return true;
+  } catch { return false; }
+}
+/* Usunięcie zgody — wyłącznie administrator. Najpierw kopia do chmury, potem usunięcie. */
+async function deleteRecord(r) {
+  if (!isAdmin()) return;
+  const cloud = fbCfg();
+  if (!confirm(`Usunąć zgodę „${r.person.first} ${r.person.last}”?\n\n` +
+    (cloud ? "Najpierw zapiszę niezmienialną kopię w chmurze — będzie ją można odtworzyć przez „Przywróć z chmury”." :
+             "⚠ Chmura nie jest włączona — usunięcie będzie nieodwracalne na tym urządzeniu."))) return;
+  if (cloud) { const ok = await snapshotNow(); if (!ok && !confirm("Nie udało się zapisać kopii w chmurze. Usunąć mimo to (nieodwracalnie)?")) return; }
+  await tx("records", "readwrite", s => s.delete(r.id));
+  try { await tx("outbox", "readwrite", s => s.delete(r.id)); } catch {}
+  S.records = S.records.filter(x => x.id !== r.id);
+  scheduleSync();
+  enterHome();
+}
 
 async function revokeRodo(r) {
   if (!confirm(`Odnotować cofnięcie zgody RODO przez ${r.person.first} ${r.person.last}?\n\nCofnięcie działa na przyszłość — nie unieważnia zezwolenia art. 81 dla już wyprodukowanego materiału. Dokument pozostaje w archiwum jako dowód.`)) return;
@@ -1510,10 +1540,19 @@ function renderProjects() {
     });
     const del = card.querySelector("[data-act=del]");
     if (del) del.addEventListener("click", async () => {
-      if (!confirm(`Usunąć projekt „${p.name}”? Zebrane zgody pozostaną w archiwum.`)) return;
+      if (!isAdmin()) return;
+      const cloud = fbCfg();
+      const cnt = S.records.filter(x => x.projectId === p.id && !x.corrupted).length;
+      if (!confirm(`Usunąć projekt „${p.name}”${cnt ? ` wraz z jego zgodami (${cnt})` : ""}?\n\n` +
+        (cloud ? "Najpierw zapiszę niezmienialną kopię w chmurze — będzie ją można odtworzyć przez „Przywróć z chmury”." :
+                 "⚠ Chmura nie jest włączona — usunięcie będzie nieodwracalne na tym urządzeniu."))) return;
+      if (cloud) { const ok = await snapshotNow(); if (!ok && !confirm("Nie udało się zapisać kopii w chmurze. Usunąć mimo to (nieodwracalnie)?")) return; }
+      const ids = S.records.filter(x => x.projectId === p.id).map(x => x.id);
+      for (const id of ids) { await tx("records", "readwrite", s => s.delete(id)); try { await tx("outbox", "readwrite", s => s.delete(id)); } catch {} }
+      S.records = S.records.filter(x => x.projectId !== p.id);
       S.vault.projects = S.vault.projects.filter(x => x.id !== p.id);
-      if (S.vault.activeProjectId === p.id) S.vault.activeProjectId = S.vault.projects[0].id;
-      await saveVault(); renderProjects();
+      if (S.vault.activeProjectId === p.id) S.vault.activeProjectId = (S.vault.projects[0] && S.vault.projects[0].id) || null;
+      await saveVault(); scheduleSync(); renderProjects();
     });
     box.appendChild(card);
   }
