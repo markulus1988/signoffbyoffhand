@@ -45,6 +45,7 @@ body {
   min-height: 100vh;
 }
 .view { min-height: 100vh; }
+.view[hidden]{ display: none !important; }
 .container { max-width: 760px; margin: 0 auto; padding: 22px 22px 80px; }
 .container.narrow { max-width: 720px; }
 h1 { font-family: var(--ui); font-size: 1.5rem; font-weight: 600; margin: .2em 0; }
@@ -85,9 +86,9 @@ a { color: var(--accent); }
   background: linear-gradient(150deg,#21345a,#16284a); border: 1px solid rgba(255,255,255,.08);
 }
 .clap-meta {
-  position: absolute; bottom: 17px; left: 12px; right: 12px;
-  font-family: var(--mono); font-size: 8px; letter-spacing: 1px; color: #8a96b4;
-  text-align: left; line-height: 1.5;
+  position: absolute; bottom: 8px; left: 12px; right: 12px;
+  font-family: var(--mono); font-size: 7.5px; letter-spacing: 1px; color: #8a96b4;
+  text-align: left; line-height: 1.4;
 }
 .clap-top {
   position: absolute; top: 0; left: 0; width: 84px; height: 21px; border-radius: 6px; overflow: hidden;

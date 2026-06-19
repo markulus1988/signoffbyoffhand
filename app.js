@@ -100,7 +100,7 @@ const views = ["view-lock", "view-home", "view-wizard", "view-detail", "view-set
 function show(view) { views.forEach(v => $(v).hidden = v !== view); window.scrollTo(0, 0); }
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const isAdmin = () => S.user && (S.user.role === "admin" || S.user.role === "support");
-const roleLabel = (r) => r === "admin" ? "administrator" : r === "support" ? "Support" : r === "inne" ? "inne" : "pracownik";
+const roleLabel = (r) => r === "admin" ? "Administrator" : r === "support" ? "Support" : r === "inne" ? "Inne" : "Pracownik";
 function activeProject() { return allowedProjects().find(p => p.id === S.vault.activeProjectId) || allowedProjects()[0]; }
 function allowedProjects() {
   if (isAdmin()) return S.vault.projects;
