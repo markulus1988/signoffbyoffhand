@@ -2,15 +2,9 @@
   "name": "signoffbyoffhand",
   "version": "1.0.0",
   "description": "SignOff by Offhand - bezpieczne zbieranie zgod i dokumentow do podpisu na tablecie/telefonie (PWA, offline-first, E2E cloud backup)",
-  "main": "server.js",
-  "scripts": {
-    "start": "node server.js"
-  },
   "license": "UNLICENSED",
   "private": true,
-  "dependencies": {
-    "nodemailer": "^6.9.0"
-  },
+  "comment": "Aplikacja to statyczna PWA (index.html + app.js) hostowana na GitHub Pages. Maile ida przez Firebase Cloud Function (patrz functions/). sharp uzywany lokalnie do generowania ikon/kodow QR.",
   "devDependencies": {
     "sharp": "^0.35.1"
   }
