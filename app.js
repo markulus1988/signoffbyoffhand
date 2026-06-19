@@ -589,6 +589,7 @@ function smtpAutodetect(email) {
   const dom = (String(email).split("@")[1] || "").toLowerCase();
   const map = {
     "gmail.com": ["smtp.gmail.com", 465], "googlemail.com": ["smtp.gmail.com", 465],
+    "offhandfilms.com": ["smtp.gmail.com", 465],
     "outlook.com": ["smtp-mail.outlook.com", 587], "hotmail.com": ["smtp-mail.outlook.com", 587],
     "live.com": ["smtp-mail.outlook.com", 587], "office365.com": ["smtp.office365.com", 587],
     "yahoo.com": ["smtp.mail.yahoo.com", 465],
