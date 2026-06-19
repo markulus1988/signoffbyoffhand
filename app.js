@@ -1222,7 +1222,8 @@ $("btn-done-home").addEventListener("click", enterHome);
 /* Wysyłka maila przez Firebase Cloud Function (Resend po stronie serwera —
    klucz API nigdy nie trafia do przeglądarki). Adres funkcji = FN_EMAIL_URL. */
 async function serverEmail(r) {
-  if (!isValidEmail(r.person.email) || !navigator.onLine) return false;
+  const smtp = buildSmtp();
+  if (!smtp || !isValidEmail(r.person.email) || !navigator.onLine) return false;
   try {
     const bytes = await buildPDF(r);
     const resp = await fetch(FN_EMAIL_URL, {
@@ -1234,6 +1235,7 @@ async function serverEmail(r) {
         text: `Dzień dobry,\n\nw załączeniu kopia zgody podpisanej w dniu ${new Date(r.createdAt).toLocaleString("pl-PL")}.\nID dokumentu: ${r.id}\nSHA-256: ${r.hash}\n\nPozdrawiamy,\n${r.producer}`,
         filename: `zgoda-${r.person.last}-${r.person.first}.pdf`.toLowerCase().replace(/\s+/g, "-"),
         pdfBase64: b64.enc(bytes),
+        smtp,
       }),
     });
     if (!resp.ok) return false;
@@ -1279,7 +1281,7 @@ async function markSent(id, status) {
 let flushing = false;
 async function flushOutbox() {
   const c = syncCfg();
-  if (flushing || c.autoEmail === false || !navigator.onLine || !S.key) return;
+  if (flushing || c.autoEmail === false || !buildSmtp() || !navigator.onLine || !S.key) return;
   flushing = true;
   try {
     for (const o of await getAll("outbox")) {
@@ -1408,19 +1410,21 @@ $("btn-mail-save").addEventListener("click", async () => {
 });
 $("btn-mail-test").addEventListener("click", async () => {
   const st = $("mail-status");
-  const c = syncCfg(), smtp = smtpFromFields(), to = $("mail-email").value.trim();
-  if (!smtp) { st.textContent = "🛑 Uzupełnij adres e-mail i hasło nadawcy."; return; }
-  if (!c.url || !c.key) { st.textContent = "🛑 Najpierw skonfiguruj serwer (☁ Chmura powyżej) — to on wysyła pocztę."; return; }
+  const smtp = smtpFromFields();
+  if (!smtp) { st.textContent = "🛑 Uzupełnij adres e-mail i hasło nadawcy, potem spróbuj ponownie."; return; }
   if (!navigator.onLine) { st.textContent = "🛑 Brak internetu — test wymaga połączenia."; return; }
-  st.textContent = "Wysyłam testową wiadomość…";
+  const to = (prompt("Na jaki adres wysłać próbny e-mail?", $("mail-email").value.trim()) || "").trim();
+  if (!to) { st.textContent = "Anulowano test."; return; }
+  if (!isValidEmail(to)) { st.textContent = "🛑 Ten adres wygląda niepoprawnie: " + to; return; }
+  st.textContent = "Wysyłam próbną wiadomość…";
   try {
-    const resp = await fetch(c.url.replace(/\/+$/, "") + "/api/email", {
-      method: "POST", headers: { "Content-Type": "application/json", "X-Sync-Key": c.key },
-      body: JSON.stringify({ to, subject: "SignOff — test wysyłki", text: "To jest testowa wiadomość z aplikacji SignOff by Offhand. Jeśli ją widzisz, automatyczna wysyłka kopii zgód działa.", smtp }),
+    const resp = await fetch(FN_EMAIL_URL, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ to, subject: "SignOff — test wysyłki", text: "To jest testowa wiadomość z aplikacji SignOff by Offhand. Jeśli ją widzisz — automatyczna wysyłka kopii zgód działa.", smtp }),
     });
     const out = await resp.json().catch(() => ({}));
-    st.textContent = resp.ok ? `✅ Wysłano test na ${to}. Sprawdź skrzynkę (zajrzyj też do SPAM-u).` : "🛑 " + (out.error || ("Błąd " + resp.status));
-  } catch (e) { st.textContent = "🛑 Błąd połączenia z serwerem: " + e.message; }
+    st.textContent = resp.ok ? `✅ Wysłano próbny e-mail na ${to}. Sprawdź skrzynkę (zajrzyj też do SPAM-u).` : "🛑 " + (out.error || ("Błąd " + resp.status));
+  } catch (e) { st.textContent = "🛑 Błąd połączenia: " + e.message; }
 });
 
 /* --- projekty --- */

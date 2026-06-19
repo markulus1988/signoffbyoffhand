@@ -1,10 +1,11 @@
 {
   "name": "signoff-functions",
-  "description": "SignOff by Offhand — Cloud Functions (wysyłka maili przez Resend)",
+  "description": "SignOff by Offhand — Cloud Functions (wysyłka maili przez SMTP)",
   "engines": { "node": "20" },
   "main": "index.js",
   "private": true,
   "dependencies": {
-    "firebase-functions": "^5.0.1"
+    "firebase-functions": "^5.0.1",
+    "nodemailer": "^6.9.14"
   }
 }
