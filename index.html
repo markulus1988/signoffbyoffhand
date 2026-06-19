@@ -74,31 +74,35 @@
   <header class="topbar">
     <div class="topbar-brand"><img class="brand-mark-lead" src="icons/offhand-mark-cream.png" alt=""><div class="wordmark sm"><span class="nm">Sign<b>Off</b></span><span class="by">by OFFHAND</span></div></div>
     <div class="topbar-right">
-      <span id="user-badge" class="badge planned" data-help="Zalogowany użytkownik i jego rola. Administrator ma pełne uprawnienia; pracownik i „inne” mogą wyłącznie zbierać zgody."></span>
-      <span id="sync-badge" class="badge offline" data-help="Stan kopii w chmurze. Godzina = ostatnia udana synchronizacja; „oczekuje” = wyśle przy najbliższym połączeniu.">☁ —</span>
-      <span id="net-status" class="badge offline" data-help="Stan połączenia z internetem. Aplikacja działa w pełni offline — zgody zbiera się bez sieci.">offline</span>
-      <button class="btn ghost" id="btn-settings" data-help="Ustawienia: projekty, dokumenty, konta, chmura (administrator) oraz zmiana własnego PIN.">⚙</button>
-      <button class="btn logout" id="btn-lock" data-help="Wylogowanie i zaszyfrowanie danych. Następna osoba musi podać swój PIN.">Wyloguj</button>
+      <span id="sync-badge" class="hb-sync" data-help="Stan kopii w chmurze. Godzina = ostatnia udana synchronizacja; „oczekuje” = wyśle przy najbliższym połączeniu.">☁ —</span>
+      <span id="user-badge" class="hb-chip" data-help="Twoja rola. Administrator ma pełne uprawnienia; pracownik zbiera zgody."></span>
+      <span id="net-status" class="hb-net" data-help="Stan połączenia z internetem.">offline</span>
+      <button class="hb-icon" id="btn-settings" aria-label="Ustawienia" data-help="Ustawienia: projekty, dokumenty, konta, chmura (administrator) oraz zmiana własnego PIN."><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" stroke="currentColor" stroke-width="1.6"/></svg></button>
+      <button class="hb-icon logout" id="btn-lock" aria-label="Wyloguj" data-help="Wylogowanie i zaszyfrowanie danych. Następna osoba musi podać swój PIN."><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M14 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M10 12h11m0 0l-3-3m3 3l-3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     </div>
   </header>
   <main class="container">
-    <div class="home-head">
-      <div class="project-pick">
-        <button class="btn admin-only" id="btn-new-project" data-help="Tworzy nowy projekt i przechodzi do jego ustawień (nazwa, treść zgody, dokumenty, kto zbiera).">＋ Utwórz projekt</button>
-        <label class="tiny muted" for="project-select">Projekt, do którego zbierasz zgody</label>
-        <select id="project-select"></select>
-        <p class="muted tiny" id="home-producer"></p>
-      </div>
-      <button class="btn primary big" id="btn-new" data-help="Rozpoczyna zbieranie nowej zgody: dane osoby → treść i dokumenty → podpis → zdjęcie → zapis.">＋ Nowa zgoda</button>
+    <div class="hb-projlabel">
+      <span class="field-label">PROJEKT</span>
+      <button class="proj-add admin-only" id="btn-new-project" data-help="Tworzy nowy projekt i przechodzi do jego ustawień (nazwa, treść zgody, dokumenty, kto zbiera).">＋ nowy</button>
     </div>
+    <div class="proj-card">
+      <select id="project-select" aria-label="Wybierz projekt"></select>
+      <p class="proj-sub" id="home-producer"></p>
+    </div>
+    <button class="cta-new" id="btn-new" data-help="Rozpoczyna zbieranie nowej zgody: dane osoby → treść i dokumenty → podpis → zdjęcie → zapis.">
+      <span class="cta-tile">＋</span>
+      <span class="cta-txt"><b>Nowa zgoda</b><span>Rozpocznij podpis na planie</span></span>
+      <span class="cta-chev">›</span>
+    </button>
     <div class="stats" id="home-stats"></div>
-    <div class="toolbar">
-      <input type="search" id="search" placeholder="Szukaj osoby…">
-      <button class="btn ghost" id="btn-verify" data-help="Sprawdza kryptograficznie (łańcuch SHA-256), czy żadna zapisana zgoda nie została zmodyfikowana ani usunięta poza aplikacją.">🛡 Weryfikuj integralność</button>
-      <button class="btn ghost admin-only" id="btn-export" data-help="Pobiera zaszyfrowaną kopię całej bazy do pliku. Bez PIN-u plik jest bezużyteczny — można go trzymać w chmurze lub na pendrive.">⬇ Kopia zapasowa</button>
-    </div>
+    <div class="toolbar"><input type="search" id="search" placeholder="Szukaj osoby…"></div>
     <p id="verify-result" class="verify-result" hidden></p>
     <div id="records-list" class="records"></div>
+    <div class="home-foot">
+      <button class="foot-link" id="btn-verify" data-help="Sprawdza kryptograficznie (łańcuch SHA-256), czy żadna zapisana zgoda nie została zmodyfikowana ani usunięta poza aplikacją.">🛡 Łańcuch — weryfikuj</button>
+      <button class="foot-link admin-only" id="btn-export" data-help="Pobiera zaszyfrowaną kopię całej bazy do pliku. Bez PIN-u plik jest bezużyteczny — można go trzymać w chmurze lub na pendrive.">⬇ Kopia</button>
+    </div>
   </main>
 </section>
 

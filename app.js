@@ -381,7 +381,8 @@ async function loadRecords() {
 function applyRole() {
   document.querySelectorAll(".admin-only").forEach(el => { el.style.display = isAdmin() ? "" : "none"; });
   const ub = $("user-badge");
-  ub.textContent = S.user.name + " · " + roleLabel(S.user.role);
+  ub.textContent = isAdmin() ? "ADMIN" : roleLabel(S.user.role).toUpperCase();
+  ub.title = S.user.name + " · " + roleLabel(S.user.role);
 }
 
 /* ===================== Ekran główny ===================== */
@@ -419,11 +420,13 @@ function projectRecords() {
 }
 function renderStats() {
   const rs = projectRecords().filter(r => !r.corrupted);
+  const sent = S.sentIds || new Set();
+  const oczekuje = rs.filter(r => r.status === "active" && !sent.has(r.id)).length;
+  const cofniete = rs.filter(r => r.status !== "active").length;
   $("home-stats").innerHTML =
-    `<div class="stat"><b>${rs.length}</b><span>zgód w projekcie</span></div>` +
-    `<div class="stat"><b>${rs.filter(r => r.status === "active").length}</b><span>aktywnych</span></div>` +
-    `<div class="stat"><b>${rs.filter(r => r.status !== "active").length}</b><span>cofniętych (RODO)</span></div>` +
-    `<div class="stat"><b>${S.records.filter(r => !r.corrupted).length}</b><span>łącznie (wszystkie projekty)</span></div>`;
+    `<div class="stat"><b>${rs.length}</b><span>zebrane</span></div>` +
+    `<div class="stat"><b>${oczekuje}</b><span>oczekuje</span></div>` +
+    `<div class="stat"><b>${cofniete}</b><span>cofnięte</span></div>`;
 }
 function renderList(filter) {
   const list = $("records-list");
