@@ -1544,7 +1544,6 @@ function enterSettings() {
   applyRole();
   if (isAdmin()) {
     $("set-producer").value = S.vault.producer;
-    $("set-email").value = S.vault.email || "";
     const c = syncCfg();
     $("sync-url").value = c.url || "";
     $("sync-key").value = c.key || "";
@@ -1572,7 +1571,6 @@ function enterSettings() {
 $("btn-settings-back").addEventListener("click", enterHome);
 $("btn-set-save").addEventListener("click", async () => {
   S.vault.producer = $("set-producer").value.trim() || S.vault.producer;
-  S.vault.email = $("set-email").value.trim();
   await saveVault();
   enterHome();
 });
@@ -1620,6 +1618,9 @@ $("btn-mail-test").addEventListener("click", async () => {
 function renderProjects() {
   const box = $("projects-list");
   box.innerHTML = "";
+  if (!S.vault.projects.length) {
+    box.innerHTML = `<div class="proj-empty">📁 Brak projektów. Utwórz pierwszy poniżej — po dodaniu rozwiniesz w nim: <b>własną treść zgody</b>, <b>dokumenty PDF do podpisu</b> (z oznaczeniem obowiązkowych), <b>wymóg zdjęcia-dowodu</b> oraz <b>którzy pracownicy</b> mogą w nim zbierać zgody.</div>`;
+  }
   const employees = S.config.accounts.filter(a => a.active);
   for (const p of S.vault.projects) {
     p.allowedUserIds = p.allowedUserIds || [];
