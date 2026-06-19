@@ -421,13 +421,16 @@ function projectRecords() {
 }
 function renderStats() {
   const rs = projectRecords().filter(r => !r.corrupted);
-  const sent = S.sentIds || new Set();
-  const oczekuje = rs.filter(r => r.status === "active" && !sent.has(r.id)).length;
-  const cofniete = rs.filter(r => r.status !== "active").length;
+  // tylko aktywne, ważne zgody (cofnięte nie liczą się jako "podpisane")
+  const active = rs.filter(r => r.status === "active");
+  const todayStr = new Date().toLocaleDateString("pl-PL");
+  const dzis = active.filter(r => r.createdAt && new Date(r.createdAt).toLocaleDateString("pl-PL") === todayStr).length;
+  // ile z aktywnych zgód jest bezpiecznie w kopii E2E w chmurze
+  const wChmurze = active.filter(r => isBackedUp(r)).length;
   $("home-stats").innerHTML =
-    `<div class="stat"><b>${rs.length}</b><span>zebrane</span></div>` +
-    `<div class="stat"><b>${oczekuje}</b><span>oczekuje</span></div>` +
-    `<div class="stat"><b>${cofniete}</b><span>cofnięte</span></div>`;
+    `<div class="stat"><b>${active.length}</b><span>podpisane</span></div>` +
+    `<div class="stat"><b>${dzis}</b><span>dziś</span></div>` +
+    `<div class="stat"><b>${wChmurze}</b><span>w chmurze</span></div>`;
 }
 function renderList(filter) {
   const list = $("records-list");
