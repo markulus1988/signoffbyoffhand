@@ -152,22 +152,28 @@ function uiPrompt(message, opt) {
 /* ===================== Administratorzy danych (podmioty na zgodzie) =====================
    Rejestr administratorów danych (RODO). Każda zgoda używa administratora przypisanego
    do projektu, a jeśli projekt go nie ma — administratora domyślnego. */
-/* Realne dane administratora Offhand (potwierdzone w białej liście VAT MF, NIP 5423140283). */
-const ADMIN_DEFAULTS = { name: "Offhand Hanna Nobis", address: "ul. Szara 14/5, 00-420 Warszawa", taxId: "5423140283", email: "hankanobis@offhandfilms.com" };
+/* Realne dane administratora Offhand (potwierdzone: biała lista VAT MF + CEIDG, NIP 5423140283).
+   Nazwa „offhand Hanna Nobis" z małym „offhand" — zgodnie z wpisem w CEIDG. */
+const LEGACY_ADMIN_NAME = "Offhand Hanna Nobis";
+const ADMIN_DEFAULTS = { name: "offhand Hanna Nobis", address: "ul. Szara 14/5, 00-420 Warszawa", taxId: "5423140283", email: "hankanobis@offhandfilms.com" };
 function normalizeVault(v) {
   if (!v) return false;
   let changed = false;
   if (!Array.isArray(v.admins) || !v.admins.length) {
-    v.admins = [{ id: uuid(), name: v.producer || ADMIN_DEFAULTS.name, address: ADMIN_DEFAULTS.address, taxId: ADMIN_DEFAULTS.taxId, email: v.email || ADMIN_DEFAULTS.email }];
+    const baseName = (v.producer && v.producer !== LEGACY_ADMIN_NAME) ? v.producer : ADMIN_DEFAULTS.name;
+    v.admins = [{ id: uuid(), name: baseName, address: ADMIN_DEFAULTS.address, taxId: ADMIN_DEFAULTS.taxId, email: v.email || ADMIN_DEFAULTS.email }];
     changed = true;
   }
   if (!v.defaultAdminId || !v.admins.find(a => a.id === v.defaultAdminId)) { v.defaultAdminId = v.admins[0].id; changed = true; }
-  // uzupełnij puste pola domyślnego administratora realnymi danymi Offhand (tylko gdy to wciąż Offhand i pole puste — nie nadpisuje ręcznych zmian)
   const da = v.admins.find(a => a.id === v.defaultAdminId);
-  if (da && da.name === ADMIN_DEFAULTS.name) {
-    if (!da.address) { da.address = ADMIN_DEFAULTS.address; changed = true; }
-    if (!da.taxId) { da.taxId = ADMIN_DEFAULTS.taxId; changed = true; }
-    if (!da.email) { da.email = ADMIN_DEFAULTS.email; changed = true; }
+  if (da) {
+    if (da.name === LEGACY_ADMIN_NAME) { da.name = ADMIN_DEFAULTS.name; changed = true; } // ujednolicenie do pisowni z CEIDG
+    // uzupełnij puste pola domyślnego administratora realnymi danymi (tylko gdy to wciąż Offhand i pole puste — nie nadpisuje ręcznych zmian)
+    if (da.name === ADMIN_DEFAULTS.name) {
+      if (!da.address) { da.address = ADMIN_DEFAULTS.address; changed = true; }
+      if (!da.taxId) { da.taxId = ADMIN_DEFAULTS.taxId; changed = true; }
+      if (!da.email) { da.email = ADMIN_DEFAULTS.email; changed = true; }
+    }
   }
   const dn = (v.admins.find(a => a.id === v.defaultAdminId) || v.admins[0]).name;
   if (v.producer !== dn) { v.producer = dn; changed = true; } // mirror dla zgodności wstecznej
@@ -348,7 +354,7 @@ $("btn-setup").addEventListener("click", async () => {
   S.dekRaw = dekRaw;
   S.key = await importDEK(dekRaw);
   S.user = acc;
-  S.vault = { producer: "Offhand Hanna Nobis", email: "", projects: [], activeProjectId: null, sync: { url: "", key: "", auto: true, autoEmail: true } };
+  S.vault = { producer: "offhand Hanna Nobis", email: "", projects: [], activeProjectId: null, sync: { url: "", key: "", auto: true, autoEmail: true } };
   normalizeVault(S.vault);
   await saveVault();
   enterHome();
@@ -1667,7 +1673,7 @@ function renderAdmins() {
         <span class="admin-badge">${isDef ? "⭐ Domyślny" : "Administrator"}</span>
         <span class="tiny muted">${usedBy ? usedBy + " proj." : ""}</span>
       </div>
-      <label>Nazwa / firma<input class="a-name" value="${esc(a.name || "")}" placeholder="np. Offhand Hanna Nobis"></label>
+      <label>Nazwa / firma<input class="a-name" value="${esc(a.name || "")}" placeholder="np. offhand Hanna Nobis"></label>
       <label>Adres siedziby<input class="a-addr" value="${esc(a.address || "")}" placeholder="ulica, kod, miasto"></label>
       <label>NIP / identyfikator (NIP, CEIDG lub zagraniczny)<input class="a-tax" value="${esc(a.taxId || "")}" placeholder="np. 5213029719"></label>
       <label>E-mail kontaktowy ds. danych (RODO)<input class="a-email" type="email" value="${esc(a.email || "")}" placeholder="np. rodo@offhand.pl"></label>
