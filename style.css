@@ -190,7 +190,8 @@ label { font-weight: 500; font-size: .9rem; display: block; margin: 12px 0 0; co
   display: flex; align-items: center; justify-content: space-between;
   background: rgba(15,29,51,.85); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--line);
-  padding: 12px 18px; position: sticky; top: 0; z-index: 5; gap: 14px;
+  /* pełne tło, ale treść wyrównana do kolumny 760px (jak .container) na szerokich ekranach */
+  padding: 12px max(18px, calc((100% - 760px) / 2 + 22px)); position: sticky; top: 0; z-index: 5; gap: 14px;
 }
 .topbar-right { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
 .topbar-right .badge { display: inline-flex; align-items: center; height: 28px; }
