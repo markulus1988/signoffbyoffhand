@@ -38,11 +38,14 @@
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; padding: 0; }
+/* wyłącz pull-to-refresh (gest od góry przeładowywał appkę i wylogowywał) */
+html { overscroll-behavior-y: none; }
 body {
   font-family: var(--ui);
   background: var(--bg-page) fixed; color: var(--ink);
   font-size: 16px; line-height: 1.5;
   min-height: 100vh;
+  overscroll-behavior-y: none;
 }
 .view { min-height: 100vh; }
 .view[hidden]{ display: none !important; }
