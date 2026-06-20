@@ -2071,6 +2071,8 @@ KLAUZULA INFORMACYJNA (RODO) DLA UŻYTKOWNIKÓW APLIKACJI
 Kontakt w sprawie danych: Offhand Hanna Nobis.`;
 $("link-rodo").addEventListener("click", (e) => { e.preventDefault(); $("rodo-doc").textContent = RODO_USERS_TEXT; $("rodo-modal").hidden = false; });
 $("btn-rodo-close").addEventListener("click", () => { $("rodo-modal").hidden = true; });
+$("link-reset").addEventListener("click", (e) => { e.preventDefault(); $("reset-modal").hidden = false; });
+$("btn-reset-close").addEventListener("click", () => { $("reset-modal").hidden = true; });
 
 boot();
 

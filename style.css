@@ -505,7 +505,11 @@ details.adv summary b { color: var(--ink-2); }
 #loginbox #account-select { border: 1px solid var(--accent-line-strong); background: var(--card-flat-2); }
 .pin-input { margin-top: 0; }
 .lock-reset { margin: 14px 0 0; font-size: .82rem; color: var(--ink-2); text-align: center; line-height: 1.8; }
-.lock-reset b { color: var(--accent); font-weight: 600; }
+.lock-reset b, .reset-link { color: var(--accent); font-weight: 600; }
+.reset-link { text-decoration: none; cursor: pointer; }
+.reset-link:hover { text-decoration: underline; }
+.reset-steps { text-align: left; margin: 8px 0 4px; padding-left: 22px; color: var(--ink-2); }
+.reset-steps li { margin: 7px 0; line-height: 1.5; }
 #login-hint { text-align: center; }
 
 /* ---------- Karta dowodowa (ekran „Zgoda zapisana") ---------- */
