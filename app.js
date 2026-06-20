@@ -152,14 +152,23 @@ function uiPrompt(message, opt) {
 /* ===================== Administratorzy danych (podmioty na zgodzie) =====================
    Rejestr administratorów danych (RODO). Każda zgoda używa administratora przypisanego
    do projektu, a jeśli projekt go nie ma — administratora domyślnego. */
+/* Realne dane administratora Offhand (potwierdzone w białej liście VAT MF, NIP 5423140283). */
+const ADMIN_DEFAULTS = { name: "Offhand Hanna Nobis", address: "ul. Szara 14/5, 00-420 Warszawa", taxId: "5423140283", email: "hankanobis@offhandfilms.com" };
 function normalizeVault(v) {
   if (!v) return false;
   let changed = false;
   if (!Array.isArray(v.admins) || !v.admins.length) {
-    v.admins = [{ id: uuid(), name: v.producer || "Offhand Hanna Nobis", address: "", taxId: "", email: v.email || "" }];
+    v.admins = [{ id: uuid(), name: v.producer || ADMIN_DEFAULTS.name, address: ADMIN_DEFAULTS.address, taxId: ADMIN_DEFAULTS.taxId, email: v.email || ADMIN_DEFAULTS.email }];
     changed = true;
   }
   if (!v.defaultAdminId || !v.admins.find(a => a.id === v.defaultAdminId)) { v.defaultAdminId = v.admins[0].id; changed = true; }
+  // uzupełnij puste pola domyślnego administratora realnymi danymi Offhand (tylko gdy to wciąż Offhand i pole puste — nie nadpisuje ręcznych zmian)
+  const da = v.admins.find(a => a.id === v.defaultAdminId);
+  if (da && da.name === ADMIN_DEFAULTS.name) {
+    if (!da.address) { da.address = ADMIN_DEFAULTS.address; changed = true; }
+    if (!da.taxId) { da.taxId = ADMIN_DEFAULTS.taxId; changed = true; }
+    if (!da.email) { da.email = ADMIN_DEFAULTS.email; changed = true; }
+  }
   const dn = (v.admins.find(a => a.id === v.defaultAdminId) || v.admins[0]).name;
   if (v.producer !== dn) { v.producer = dn; changed = true; } // mirror dla zgodności wstecznej
   return changed;
