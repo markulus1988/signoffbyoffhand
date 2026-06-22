@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>5. Bezpieczeństwo i prywatność — SignOff</title>
+<title>6. Bezpieczeństwo i prywatność — SignOff</title>
 <link rel="stylesheet" href="doc.css">
 </head>
 <body>
@@ -55,7 +55,7 @@
   <table>
     <tr><th>Element</th><th>Gdzie</th><th>W jakiej postaci</th></tr>
     <tr><td>Zgody, podpisy, zdjęcia, pliki</td><td>Telefon + kopia w Firebase</td><td><span class="yes">Zawsze zaszyfrowane (AES-256)</span></td></tr>
-    <tr><td>PIN administratora/operatora</td><td>Nigdzie w czytelnej postaci</td><td><span class="yes">Tylko nieodwracalny skrót (PBKDF2)</span></td></tr>
+    <tr><td>PIN konta (administrator/pracownik)</td><td>Nigdzie w czytelnej postaci</td><td><span class="yes">Tylko nieodwracalny skrót (PBKDF2)</span></td></tr>
     <tr><td>Hasło aplikacji do poczty</td><td>Tylko telefon (sejf AES-256)</td><td><span class="yes">Zaszyfrowane; na serwerze NIE zapisywane</span></td></tr>
     <tr><td>Dane osób w chmurze</td><td>Firebase (UE)</td><td><span class="yes">Wyłącznie szyfrogram — Google nie widzi treści</span></td></tr>
     <tr><td>Dane u innych, zewnętrznych firm</td><td>—</td><td><span class="no">Nie są nigdzie odkładane</span></td></tr>
@@ -82,5 +82,6 @@
   <div class="pager"><a class="back" href="kopia.html">← Kopia w chmurze</a><a href="faq.html">Dalej: Najczęstsze pytania →</a></div>
   <footer>SignOff by Offhand · dla Hanny Nobis · od Marka · karta bezpieczeństwa v1.0</footer>
 </div>
+<script src="doc.js"></script>
 </body>
 </html>

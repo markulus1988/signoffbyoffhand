@@ -772,3 +772,5 @@ details.adv summary b { color: var(--ink-2); }
 .install-link { font-family: var(--mono); font-size: .68rem; word-break: break-all; color: var(--accent, #5fd0a8); text-decoration: none; }
 .install-actions { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
 .tiny-btn { padding: 5px 10px; font-size: .72rem; }
+
+.mail-autoemail { margin: 4px 0 12px; }

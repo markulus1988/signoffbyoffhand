@@ -386,13 +386,12 @@
       <p id="fb-status" class="tiny muted"></p>
       <div id="fb-restore-list"></div>
 
-      <h4 class="set-sub">Własny serwer kopii (alternatywa)</h4>
+      <h4 class="set-sub">Własny serwer kopii (dla zaawansowanych)</h4>
       <details class="adv"><summary><b>☁ Pokaż ustawienia własnego serwera (zwykle niepotrzebne)</b></summary>
-      <p class="tiny muted">Zamiast Firebase można użyć własnego serwera (server.js). Klucz synchronizacji wyświetla konsola serwera przy starcie.</p>
+      <p class="tiny muted">Opcja dla zaawansowanych — własny serwer synchronizacji zamiast Firebase. Domyślnie używamy Firebase (powyżej) i tej sekcji nie trzeba ruszać.</p>
       <label>Adres serwera<input type="text" id="sync-url" placeholder="np. https://twoj-serwer.pl lub http://localhost:4290"></label>
       <label>Klucz synchronizacji<input type="password" id="sync-key" autocomplete="off"></label>
       <label class="check"><input type="checkbox" id="sync-auto" checked><span>Synchronizuj automatycznie po każdej zmianie</span></label>
-      <label class="check"><input type="checkbox" id="sync-autoemail"><span>Wysyłaj kopię PDF e-mailem automatycznie po podpisaniu (skonfiguruj nadawcę niżej w „✉ Wysyłka e-mail”)</span></label>
       <div class="wnav-mini">
         <button class="btn primary" id="btn-sync-save" data-help="Zapisuje adres serwera i klucz, po czym od razu wysyła testową kopię, by sprawdzić połączenie.">💾 Zapisz i testuj połączenie</button>
         <button class="btn" id="btn-sync-now" data-help="Natychmiast wysyła pełną, zaszyfrowaną kopię bazy na serwer.">☁ Synchronizuj teraz</button>
@@ -409,6 +408,7 @@
       <div class="set-group-body">
       <h4 class="set-sub">✉ Nadawca e-mail</h4>
       <p class="tiny muted">Kopie zgód wyjdą z adresu, który tu podasz. Wpisz e-mail i hasło aplikacji — serwer i port aplikacja ustawi sama.</p>
+      <label class="check mail-autoemail"><input type="checkbox" id="sync-autoemail"><span><b>Wysyłaj kopię PDF e-mailem automatycznie</b> po każdej podpisanej zgodzie (gdy podano e-mail osoby).</span></label>
       <div class="rodo-note"><b>Ważne — Gmail, Outlook, WP, Onet itp.:</b> nie wpisuj zwykłego hasła do logowania (zostanie odrzucone). Trzeba wygenerować <b>„hasło aplikacji”</b>. Dla Gmaila: Konto Google → Bezpieczeństwo → włącz <b>weryfikację dwuetapową</b> → <b>Hasła aplikacji</b> → utwórz i wklej tutaj 16 znaków. (Dokładna instrukcja: plik <b>MAILE-I-RESET.md</b>.)</div>
       <label>Adres e-mail nadawcy<input type="email" id="mail-email" autocomplete="off" placeholder="np. zgody@offhand.pl lub twoj@gmail.com"></label>
       <label>Hasło (dla Gmaila/Outlooka: „hasło aplikacji”)<input type="password" id="mail-pass" autocomplete="off" placeholder="••••••••••••"></label>

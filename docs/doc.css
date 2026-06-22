@@ -58,3 +58,12 @@ th{ background:var(--navy); color:#eaf0fa; font-weight:600; }
 footer{ margin-top:30px; padding-top:16px; border-top:1px solid var(--line); color:var(--muted); font-size:13px; }
 @media (max-width:560px){ .wrap{ padding:24px 18px 48px; } .toc{ grid-template-columns:1fr; } }
 @media print{ body{ background:#fff; } .wrap{ padding:0; max-width:100%; } figure img{ box-shadow:none; border:1px solid var(--line);} h2{ page-break-after:avoid; } figure,.box,table{ page-break-inside:avoid; } .pager{ display:none; } }
+
+/* --- powiększanie obrazków (klik = pełny ekran) --- */
+figure{ position:relative; }
+figure img{ cursor:zoom-in; }
+figure::after{ content:"🔍 Powiększ"; position:absolute; top:10px; right:10px; background:rgba(15,29,51,.82); color:#fff; font-size:12px; font-weight:600; padding:4px 10px; border-radius:999px; pointer-events:none; }
+.lightbox{ position:fixed; inset:0; background:rgba(8,14,26,.93); display:flex; align-items:center; justify-content:center; z-index:9999; padding:24px; cursor:zoom-out; }
+.lightbox img{ max-width:100%; max-height:100%; border-radius:10px; box-shadow:0 12px 50px rgba(0,0,0,.6); }
+.lightbox .lb-close{ position:fixed; top:14px; right:18px; width:42px; height:42px; font-size:22px; line-height:1; background:rgba(255,255,255,.14); border:none; color:#fff; border-radius:50%; cursor:pointer; }
+@media print{ figure::after{ display:none; } }

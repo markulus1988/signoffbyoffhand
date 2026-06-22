@@ -1966,6 +1966,8 @@ $("btn-mail-save").addEventListener("click", async () => {
   const email = $("mail-email").value.trim();
   if (email && !isValidEmail(email)) { st.textContent = "⚠ Adres e-mail nadawcy wygląda niepoprawnie."; return; }
   S.vault.mail = { email, pass: $("mail-pass").value, from: $("mail-from").value.trim(), host: $("mail-host").value.trim(), port: $("mail-port").value.trim() };
+  if (!S.vault.sync) S.vault.sync = { url: "", key: "", auto: true };
+  S.vault.sync.autoEmail = $("sync-autoemail").checked;
   await saveVault();
   if (!email) { st.textContent = "Wyczyszczono dane nadawcy."; return; }
   const auto = smtpAutodetect(email);
