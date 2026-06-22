@@ -108,8 +108,8 @@ a { color: var(--accent); }
 .wordmark .by { font-family: var(--mono); font-size: .62rem; font-weight: 400; letter-spacing: .14em; color: var(--muted); margin-top: 3px; }
 .wordmark.sm .nm { font-size: 1.12rem; }
 .wordmark.sm .by { font-size: .48rem; letter-spacing: .2em; }
-.topbar-brand { display: flex; align-items: center; gap: 9px; }
-.brand-mark-lead { height: 24px; width: auto; }
+.topbar-brand { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.brand-mark-lead { height: 30px; width: auto; flex: 0 0 auto; }
 .brand-mark-corner { height: 26px; width: auto; flex: 0 0 auto; opacity: .92; }
 .lock-mark { display: flex; justify-content: center; margin: 24px 0 8px; }
 .lock-mark img { height: 74px; width: auto; opacity: .92; }
@@ -190,7 +190,7 @@ label { font-weight: 500; font-size: .9rem; display: block; margin: 12px 0 0; co
 
 /* ---------- topbar ---------- */
 .topbar {
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex; flex-direction: column; align-items: stretch; gap: 10px; justify-content: flex-start;
   background: rgba(15,29,51,.85); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--line);
   /* pełne tło, ale treść wyrównana do kolumny 760px (jak .container) na szerokich ekranach */
@@ -467,7 +467,7 @@ details.adv summary b { color: var(--ink-2); }
 @media (max-width: 560px) {
   .container { padding: 16px 16px 60px; }
   .topbar { flex-direction: column; align-items: stretch; gap: 8px; padding: 10px 14px; }
-  .topbar-brand { justify-content: flex-start; }
+  .topbar-brand { justify-content: space-between; }
   .topbar-right { width: 100%; justify-content: space-between; flex-wrap: wrap; gap: 7px; }
   .topbar-right .badge { flex: 0 1 auto; }
   .home-head .btn.big { width: 100%; }
