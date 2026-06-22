@@ -2222,7 +2222,7 @@ $("btn-lib-addtext").addEventListener("click", async () => {
   const st = $("lib-status");
   const name = $("lib-name").value.trim(), text = $("lib-text").value;
   if (!name) { st.textContent = "🛑 Podaj nazwę."; return; }
-  if (!text.trim()) { st.textContent = "🛑 Wklej treść albo użyj „Dodaj z pliku”."; return; }
+  if (!text.trim()) { st.textContent = "🛑 Wpisz treść albo użyj „📎 Wgraj PDF”."; return; }
   S.vault.library.push({ id: uuid(), kind: $("lib-kind").value, name, desc: $("lib-desc").value.trim(), type: "text", text, required: true, projectIds: [], createdAt: new Date().toISOString() });
   await saveVault();
   $("lib-name").value = ""; $("lib-desc").value = ""; $("lib-text").value = "";
