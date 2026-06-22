@@ -779,3 +779,9 @@ details.adv summary b { color: var(--ink-2); }
 .tiny-btn { padding: 5px 10px; font-size: .72rem; }
 
 .mail-autoemail { margin: 4px 0 12px; }
+
+/* --- Ekran logowania: logo w dwóch rogach (Offhand po lewej, SignOff po prawej) --- */
+.lock-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 2px 0 18px; }
+.lock-head .lock-logo-off { height: 54px; width: auto; opacity: .95; flex: 0 0 auto; }
+.lock-head .wordmark { align-items: flex-end; }
+@media (max-width: 420px) { .lock-head .lock-logo-off { height: 44px; } }
