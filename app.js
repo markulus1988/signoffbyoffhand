@@ -314,12 +314,30 @@ function deviceInfo() {
     tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
   };
 }
+function geoErrText(e) {
+  if (!e) return "nieznany błąd";
+  if (e.code === 1) return "brak zgody na lokalizację (zezwól w przeglądarce)";
+  if (e.code === 2) return "pozycja niedostępna (brak GPS/sieci)";
+  if (e.code === 3) return "przekroczono czas oczekiwania";
+  return e.message || "nieznany błąd";
+}
 function tryGeolocate(w) {
-  if (!navigator.geolocation) return;
-  navigator.geolocation.getCurrentPosition(
-    pos => { w.geo = { lat: +pos.coords.latitude.toFixed(5), lon: +pos.coords.longitude.toFixed(5), acc: Math.round(pos.coords.accuracy) }; auditEvent(w, "geolokalizacja", `${w.geo.lat}, ${w.geo.lon} (±${w.geo.acc} m)`); },
-    () => { auditEvent(w, "geolokalizacja", "niedostępna / brak zgody na lokalizację"); },
-    { timeout: 6000, maximumAge: 60000 });
+  if (!navigator.geolocation) { auditEvent(w, "geolokalizacja", "niedostępna: brak wsparcia w przeglądarce"); return; }
+  const ok = (pos) => {
+    w.geo = { lat: +pos.coords.latitude.toFixed(5), lon: +pos.coords.longitude.toFixed(5), acc: Math.round(pos.coords.accuracy) };
+    auditEvent(w, "geolokalizacja", `${w.geo.lat}, ${w.geo.lon} (±${w.geo.acc} m)`);
+    if (w.step === 5 && typeof renderSummary === "function") renderSummary(); // odśwież podsumowanie, jeśli pozycja przyszła później
+  };
+  // 1. próba: wysoka dokładność (GPS), dłuższy czas
+  navigator.geolocation.getCurrentPosition(ok, (e1) => {
+    // 2. próba (po timeoucie): sieć/WiFi — zwykle szybsza
+    if (e1 && e1.code === 3) {
+      navigator.geolocation.getCurrentPosition(ok, (e2) => auditEvent(w, "geolokalizacja", "niedostępna: " + geoErrText(e2)),
+        { enableHighAccuracy: false, timeout: 12000, maximumAge: 120000 });
+    } else {
+      auditEvent(w, "geolokalizacja", "niedostępna: " + geoErrText(e1));
+    }
+  }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 });
 }
 
 /* ===================== Inicjalizacja ===================== */
