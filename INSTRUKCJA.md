@@ -16,7 +16,7 @@ Przy pierwszym uruchomieniu aplikacja poprosi o nazwę firmy, pierwszy projekt i
 
 1. Dotknij swojego nazwiska i podaj PIN → **Zaloguj**.
 2. Wybierz projekt z listy u góry.
-3. **＋ Nowa zgoda** → wpisz dane osoby → daj jej przeczytać treść (checkboxy odblokują się po przewinięciu) → podpis palcem → zdjęcie → **Zapisz**.
+3. **＋ Nowa zgoda** → wpisz dane osoby → daj jej przeczytać treść → zaznacz obowiązkowe zgody → podpis palcem → zdjęcie → **Zapisz**.
 4. Zgoda jest od razu zaszyfrowana i (gdy jest internet) wysłana do chmury — patrz odznaka ☁ u góry.
 5. **Podpowiedzi:** na komputerze najedź myszką na przycisk; na tablecie/telefonie **przytrzymaj przycisk ok. pół sekundy** — pojawi się wyjaśnienie.
 
