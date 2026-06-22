@@ -1071,10 +1071,16 @@ $("btn-fb-restore").addEventListener("click", async () => {
 
 function updateSyncBadge(msg) {
   const b = $("sync-badge");
-  if (msg) { b.textContent = "☁ " + msg; return; }
-  if (!cloudEnabled()) { b.textContent = "☁ wyłączona"; b.className = "badge planned"; return; }
-  if (S.config.lastSync) { b.textContent = "☁ " + new Date(S.config.lastSync).toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" }); b.className = "badge online"; }
-  else { b.textContent = "☁ oczekuje"; b.className = "badge offline"; }
+  if (!b) return;
+  if (!cloudEnabled()) { b.textContent = "☁ wyłączona"; b.className = "hb-sync off"; b.title = "Kopia w chmurze wyłączona"; return; }
+  if (msg === "błąd") { b.textContent = "☁ błąd zapisu"; b.className = "hb-sync err"; b.title = "Ostatnia kopia się nie zapisała — spróbuję ponownie automatycznie"; return; }
+  if (!navigator.onLine) { b.textContent = "☁ offline"; b.className = "hb-sync wait"; b.title = "Brak internetu — kopia wyśle się po połączeniu"; return; }
+  if (msg === "wysyłanie…") { b.textContent = "☁ zapis…"; b.className = "hb-sync ok"; b.title = "Zapisywanie kopii w chmurze…"; return; }
+  // połączona — stały zielony
+  const t = S.config && S.config.lastSync ? new Date(S.config.lastSync).toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" }) : null;
+  b.textContent = "☁ połączono";
+  b.className = "hb-sync ok";
+  b.title = t ? ("Połączono z chmurą · ostatnia kopia o " + t) : "Połączono z chmurą";
 }
 async function syncPush(manual) {
   const fb = fbCfg(), c = syncCfg();

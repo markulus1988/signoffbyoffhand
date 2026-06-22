@@ -670,7 +670,12 @@ details.adv summary b { color: var(--ink-2); }
 
 /* ---------- Ekran główny: układ 1:1 z wzorcem ---------- */
 .topbar-right { display: flex; align-items: center; gap: 8px; }
-.hb-sync { font-family: var(--mono); font-size: .62rem; color: var(--ink-2); white-space: nowrap; }
+.hb-sync { font-family: var(--mono); font-size: .62rem; color: var(--ink-2); white-space: nowrap; display: inline-flex; align-items: center; height: 28px; padding: 0 9px; border-radius: 20px; background: rgba(255,255,255,.06); }
+.hb-sync.ok   { color: var(--accent-bright); background: rgba(52,205,146,.16); }
+.hb-sync.wait { color: var(--lime); background: rgba(188,230,79,.14); }
+.hb-sync.err  { color: var(--bad); background: rgba(232,144,143,.16); }
+.hb-sync.off  { color: var(--ink-3); background: rgba(255,255,255,.06); }
+@media (max-width: 560px) { .hb-sync { height: 26px; font-size: .58rem; padding: 0 8px; } }
 .hb-chip { font-family: var(--mono); font-size: .58rem; letter-spacing: .08em; text-transform: uppercase; color: var(--on-accent); background: var(--accent); padding: 4px 9px; border-radius: 20px; white-space: nowrap; }
 .hb-name { font-family: var(--mono); font-size: .64rem; color: var(--ink); font-weight: 600; letter-spacing: .02em; white-space: nowrap; max-width: 13ch; overflow: hidden; text-overflow: ellipsis; }
 .cloud-warning { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; margin: 0 0 14px; padding: 12px 14px; border-radius: 14px; background: rgba(255,86,86,.12); border: 1px solid rgba(255,86,86,.42); color: var(--ink); cursor: pointer; font-family: inherit; transition: background .15s; }
