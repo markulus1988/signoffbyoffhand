@@ -1,10 +1,11 @@
 /* SignOff service worker — pełny offline + bezpieczna automatyczna aktualizacja.
    Nowa wersja pobiera się w tle (gdy online), ale aktywuje się dopiero gdy użytkownik
    dotknie „Odśwież" albo przy następnym otwarciu aplikacji — nigdy w trakcie zgody. */
-const CACHE = "signoff-v38";
+const CACHE = "signoff-v43";
 const ASSETS = [
   "./", "index.html", "style.css", "app.js", "manifest.json",
   "icons/icon-192.png", "icons/icon-512.png", "icons/offhand-logo.svg", "icons/offhand-mark-cream.png",
+  "qr-signoff.svg",
   "vendor/pdf-lib.min.js", "vendor/fontkit.umd.min.js",
   "vendor/DejaVuSans.ttf", "vendor/DejaVuSans-Bold.ttf",
   "vendor/fonts/fonts.css",

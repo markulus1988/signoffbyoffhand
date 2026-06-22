@@ -105,7 +105,7 @@ a { color: var(--accent); }
 .wordmark { display: inline-flex; flex-direction: column; align-items: center; line-height: 1.04; }
 .wordmark .nm { font-family: var(--ui); font-size: 1.65rem; font-weight: 500; letter-spacing: .3px; color: var(--ink); white-space: nowrap; }
 .wordmark .nm b { font-weight: 600; color: var(--accent); }
-.wordmark .by { font-family: var(--mono); font-size: .6rem; font-weight: 400; text-transform: uppercase; letter-spacing: .28em; color: var(--muted); margin-top: 3px; }
+.wordmark .by { font-family: var(--mono); font-size: .62rem; font-weight: 400; letter-spacing: .14em; color: var(--muted); margin-top: 3px; }
 .wordmark.sm .nm { font-size: 1.12rem; }
 .wordmark.sm .by { font-size: .48rem; letter-spacing: .2em; }
 .topbar-brand { display: flex; align-items: center; gap: 9px; }
@@ -739,3 +739,36 @@ details.adv summary b { color: var(--ink-2); }
 .home-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
 .foot-link { background: none; border: none; cursor: pointer; font-family: var(--mono); font-size: .64rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding: 4px 2px; }
 .foot-link:hover { color: var(--ink-2); }
+
+/* --- Kod odzyskiwania + ekran „Nie pamiętam PIN-u" --- */
+.reccode-box { font-family: var(--mono); font-size: 1.05rem; font-weight: 700; letter-spacing: .08em; text-align: center; word-break: break-all; background: var(--paper, #f4f1ea); border: 1px dashed var(--line); border-radius: 10px; padding: 14px 10px; margin: 6px 0 4px; user-select: all; }
+.reset-h { margin: 16px 0 4px; font-size: .95rem; }
+#reset-modal .cam-help-card { text-align: left; max-width: 460px; }
+#reset-modal label.tiny { display: block; margin: 6px 0; }
+.mail-server-lbl { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin: 4px 0 10px; cursor: pointer; }
+.mail-server-lbl input { transform: translateY(1px); }
+
+/* --- Biblioteka zgód i dokumentów --- */
+.lib-card { border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin: 10px 0; background: var(--card-flat); }
+.lib-add textarea, .lib-card textarea {
+  width: 100%; margin-top: 5px; padding: 12px 14px; border: 1px solid var(--line-strong);
+  border-radius: 12px; font-size: .95rem; font-family: var(--ui); background: var(--card-flat); color: var(--ink); resize: vertical;
+}
+.lib-add textarea:focus, .lib-card textarea:focus { outline: none; border-color: var(--accent-line-strong); box-shadow: 0 0 0 3px rgba(52,205,146,.15); }
+.lib-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+.lib-tags { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+.lib-tag { font-size: .62rem; background: var(--line); border-radius: 999px; padding: 1px 8px; white-space: nowrap; }
+.lib-projassign { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; margin: 8px 0; }
+.lib-add { margin-bottom: 12px; }
+.proj-lib { margin: 8px 0; }
+.proj-lib-actions { margin-bottom: 6px; }
+.proj-lib-actions select { max-width: 100%; }
+
+/* --- Instalacja / QR na ekranie logowania --- */
+.install-cta { display: flex; align-items: center; gap: 14px; margin: 16px auto 4px; padding: 12px 14px; max-width: 360px; background: rgba(255,255,255,.05); border: 1px solid var(--line); border-radius: 14px; }
+.install-qr { width: 92px; height: 92px; flex: 0 0 auto; background: #fff; border-radius: 8px; padding: 5px; }
+.install-cta-txt { display: flex; flex-direction: column; gap: 3px; text-align: left; min-width: 0; }
+.install-cta-txt b { font-size: .9rem; }
+.install-link { font-family: var(--mono); font-size: .68rem; word-break: break-all; color: var(--accent, #5fd0a8); text-decoration: none; }
+.install-actions { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+.tiny-btn { padding: 5px 10px; font-size: .72rem; }

@@ -4,8 +4,8 @@
 
 ## 1. Instalacja na tablecie / telefonie (Android i iOS)
 
-1. Otwórz w przeglądarce adres aplikacji: **https://markulus1988.github.io/signoffbyoffhand/**
-   (docelowo własna domena Offhand — patrz pkt 6).
+1. Otwórz w przeglądarce adres aplikacji: **https://signoffbyoffhand.github.io/**
+   (docelowo własna domena Offhand — patrz pkt 7).
 2. **Android (Chrome):** menu ⋮ → **„Dodaj do ekranu głównego"** / „Zainstaluj aplikację".
    **iPhone/iPad (Safari):** przycisk Udostępnij (kwadrat ze strzałką) → **„Dodaj do ekranu początkowego"**.
 3. Na pulpicie pojawi się ikona **SignOff**. Od tej chwili aplikacja **działa w pełni bez internetu** — kamera, podpis, PDF, wszystko.
@@ -24,41 +24,49 @@ Przy pierwszym uruchomieniu aplikacja poprosi o nazwę firmy, pierwszy projekt i
 
 - **👑 Administrator** (Hanna Nobis, Marek Żak): wszystko — projekty, dokumenty PDF do podpisu, konta, resety PIN, chmura, cofnięcia RODO.
 - **👤 Pracownik**: tylko zbieranie zgód w przydzielonych projektach i zmiana własnego PIN.
-- Reset zapomnianego PIN-u: admin → Ustawienia → Konta → **🔑 Reset PIN** (stary PIN niepotrzebny).
+- Reset zapomnianego PIN-u: użytkownik sam — ekran logowania → **„Nie pamiętam PIN-u"** → kod odzyskiwania lub prośba do admina. Szczegóły: **MAILE-I-RESET.md**.
 
-## 4. Serwer w chmurze (automatyczne e-maile + kopie) — za darmo
+## 4. Zgody i dokumenty do podpisu (Ustawienia → „📋 Zgody i dokumenty")
 
-Serwer daje dwie rzeczy: **automatyczne e-maile** z PDF-em do osoby podpisującej oraz automatyczną kopię danych poza urządzeniem. Aplikacja działa też bez niego.
+Tworzysz treść **raz** i przypinasz do dowolnych projektów. Dwa rodzaje:
+- **📝 Zgoda** — treść do przeczytania i zaakceptowania; wchodzi w treść podpisywanej zgody.
+- **📎 Dokument** — plik (regulamin/umowa) do wglądu i akceptacji przy podpisie.
 
-### 4a. Wdrożenie na Render (darmowy plan, ~10 min — robi Marek raz)
-1. Załóż darmowe konto na [render.com](https://render.com) (logowanie przez GitHub).
-2. **New +** → **Blueprint** → wskaż repozytorium `markulus1988/signoffbyoffhand`. Render sam odczyta plik `render.yaml`.
-3. Render poprosi o uzupełnienie zmiennych e-mail (sekrety). Dla Gmaila:
-   - `SMTP_HOST` = `smtp.gmail.com`, `SMTP_PORT` = `465`
-   - `SMTP_USER` = Twój adres Gmail
-   - `SMTP_PASS` = **„hasło aplikacji"** Google (Konto Google → Bezpieczeństwo → włącz weryfikację dwuetapową → „Hasła aplikacji" → wygeneruj 16 znaków)
-   - `SMTP_FROM` = `SignOff by Offhand <twoj-adres@gmail.com>`
-   - `SYNC_KEY` Render wygeneruje sam — skopiuj go z zakładki **Environment**.
-4. Po chwili dostajesz adres typu `https://signoffbyoffhand.onrender.com`.
-5. W aplikacji (na każdym urządzeniu): Ustawienia → **☁ Chmura** → wpisz ten adres i `SYNC_KEY` → „Zapisz i testuj". Zaznacz „Wysyłaj kopię PDF e-mailem automatycznie".
+**Dodanie:** Ustawienia → **📋 Zgody i dokumenty** → wybierz rodzaj, wpisz nazwę i krótki opis. Treść dodajesz najprościej na dwa sposoby (zalecane):
+- **wklej tekst** w okienko, albo
+- **wgraj gotowy PDF**.
 
-### 4b. Ile to realnie kosztuje
-- **E-maile: darmowe.** Gmail wysyła do ~500/dobę bez opłat (na potrzeby zgód to bardzo dużo). Alternatywa: darmowy [Resend](https://resend.com) (3000 e-maili/mies.) — wtedy `SMTP_HOST` = `smtp.resend.com`.
-- **Serwer: darmowy plan Render** wystarcza. Dwie rzeczy do wiedzy: po 15 min bezczynności usypia (pierwsze połączenie po przerwie trwa ~minutę), oraz **darmowy dysk jest kasowany przy restarcie** — dlatego automatyczne kopie na serwerze traktuj jako wygodę, a nie jedyne zabezpieczenie.
-- **Trwała kopia za darmo** (zalecane niezależnie od serwera): Ustawienia → „⬇ Kopia zapasowa" → zapisz plik do iCloud / Dysku Google. Plik jest zaszyfrowany — bez PIN-u bezużyteczny. Najlepiej raz dziennie po pracy.
-- Pełna, automatyczna i trwała kopia na serwerze wymaga płatnego dysku Render (~7 USD/mies.) — opcjonalnie, w przyszłości.
+Word też zadziała (zamieni się na PDF), ale przy złożonym formatowaniu (tabele, grafiki) lepiej w Wordzie „Zapisz jako PDF" i wgrać PDF — sprawdź wynik przyciskiem 👁. Następnie zaznacz, **do których projektów** treść ma trafić.
 
-## 5. Utrata / wymiana urządzenia
+Przy każdej pozycji widać tagi 📁 projektów, do których należy. Możesz ją **przypiąć/odpiąć** od dowolnych projektów (jeden lub wiele), **⧉ skopiować** (np. lekko zmienić i dać do innego projektu), edytować lub usunąć.
 
-Nowe urządzenie → zainstaluj aplikację (pkt 1) → przejdź szybką konfigurację z dowolnym tymczasowym PIN-em → Ustawienia → ☁ Chmura → wpisz adres + klucz → **„⬇ Przywróć z chmury"** → wybierz kopię → zaloguj się PIN-em z chwili wykonania kopii. Wraca wszystko.
+**Z poziomu projektu** (Ustawienia → Firma i projekty → projekt) jest to samo: „➕ Przypnij istniejącą", „＋ Nowa zgoda/dokument tu" oraz edycja samego projektu (nazwa, własna treść, administrator danych, uprawnieni, zdjęcie obowiązkowe).
 
-(Bez serwera: Ustawienia → „⬆ Przywróć z pliku" — wskaż plik kopii zapasowej.)
+> Już podpisane zgody się nie zmieniają — edycja treści w bibliotece dotyczy tylko **nowych** podpisów.
 
-## 6. Własna domena (w przyszłości)
+## 5. Automatyczne e-maile + kopia w chmurze (Firebase)
 
-Gdy Offhand kupi domenę (np. `signoff.offhand.pl`): w repozytorium GitHub → Settings → Pages → Custom domain → wpisz domenę i ustaw rekord CNAME u rejestratora na `markulus1988.github.io`. Adres aplikacji zmieni się na własny — bez żadnych zmian w kodzie, a zainstalowane aplikacje wystarczy dodać ponownie z nowego adresu.
+Dwie rzeczy działają w tle: **automatyczny e-mail** z PDF-em do osoby podpisującej oraz **zaszyfrowana kopia** danych w chmurze (Firebase). Aplikacja działa też bez nich.
 
-## 7. Bezpieczeństwo w pigułce
+- **Maile:** włącza je Marek raz (jeden klucz — „hasło aplikacji" Google ustawiane po stronie serwera). Hania nic nie wpisuje. Pełna, krótka instrukcja: **MAILE-I-RESET.md**.
+- **Kopia w chmurze (E2E):** Ustawienia → **☁ Chmura (Firebase)** → wklej `apiKey`/`projectId`/`storageBucket` + e-mail i hasło konta technicznego → „Zapisz i testuj". Konfiguracja konta: **FIREBASE-SETUP.md**.
+
+### Ile to kosztuje
+- **Maile: darmowe** (Gmail/Workspace ~500/dobę — na zgody aż nadto).
+- **Firebase:** plan **Blaze** (rozliczany od zużycia), ale dla tej skali zużycie mieści się w darmowym progu — realnie ~0 zł.
+- **Trwała kopia awaryjna** (zalecane dodatkowo): Ustawienia → „⬇ Kopia zapasowa" → zapisz plik do iCloud / Dysku Google. Plik jest zaszyfrowany — bez PIN-u bezużyteczny. Najlepiej raz dziennie po pracy.
+
+## 6. Utrata / wymiana urządzenia
+
+Nowe urządzenie → zainstaluj aplikację (pkt 1) → przejdź szybką konfigurację z dowolnym tymczasowym PIN-em → Ustawienia → ☁ Chmura (Firebase) → wpisz dane projektu + konto techniczne → **„⬇ Przywróć z chmury"** → wybierz kopię → zaloguj się PIN-em z chwili wykonania kopii. Wraca wszystko.
+
+(Bez chmury: Ustawienia → „⬆ Przywróć z pliku" — wskaż plik kopii zapasowej.)
+
+## 7. Własna domena (w przyszłości)
+
+Gdy Offhand kupi domenę (np. `signoff.offhand.pl`): w repozytorium GitHub → Settings → Pages → Custom domain → wpisz domenę i ustaw rekord CNAME u rejestratora na `signoffbyoffhand.github.io`. Adres aplikacji zmieni się na własny — bez żadnych zmian w kodzie, a zainstalowane aplikacje wystarczy dodać ponownie z nowego adresu.
+
+## 8. Bezpieczeństwo w pigułce
 
 - Dane na urządzeniu i w chmurze są zaszyfrowane **AES-256** — serwer i GitHub nigdy nie widzą danych osobowych.
 - 5 błędnych PIN-ów = rosnąca blokada konta.

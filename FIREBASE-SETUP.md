@@ -33,3 +33,6 @@ service firebase.storage {
 - e-mail i hasło konta technicznego z punktu 3
 
 W aplikacji: Ustawienia → **☁ Chmura (Firebase)** → wklej powyższe → „Zapisz i testuj". Od tej chwili każda zgoda ląduje w trwałej kopii, a na nowym urządzeniu „Przywróć z chmury" odtwarza wszystko.
+
+## Maile (kopia PDF + reset PIN-u)
+Włączenie maili to osobny, krótki krok (jeden klucz „hasło aplikacji" Google ustawiany po stronie serwera) — patrz **MAILE-I-RESET.md**.

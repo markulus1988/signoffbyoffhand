@@ -50,6 +50,21 @@ const uuid = () => crypto.randomUUID();
 const PIN_RE = /^\d{6,}$/;
 const isValidEmail = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test((e || "").trim());
 
+/* Kod odzyskiwania (awaryjny reset PIN-u bez nikogo). Opakowuje ten sam DEK co PIN —
+   alfabet bez znaków mylących (I, O, 0, 1). Format: XXXXX-XXXXX-XXXXX-XXXXX (20 znaków). */
+const RECOVERY_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+function genRecoveryCode() {
+  const r = crypto.getRandomValues(new Uint8Array(20));
+  let s = ""; for (let i = 0; i < r.length; i++) s += RECOVERY_ALPHABET[r[i] % RECOVERY_ALPHABET.length];
+  return s.match(/.{1,5}/g).join("-");
+}
+const normalizeRecovery = (code) => (code || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+async function wrapDEKWith(secretStr, dek) {
+  const salt = b64.enc(crypto.getRandomValues(new Uint8Array(16)));
+  const kek = await deriveKEK(secretStr, salt);
+  return { salt, wrap: await encryptBytes(kek, dek || S.dekRaw) };
+}
+
 /* ===================== IndexedDB ===================== */
 let dbh = null;
 function openDB() {
@@ -148,6 +163,33 @@ function uiPrompt(message, opt) {
   const o = typeof opt === "string" ? { value: opt } : (opt || {});
   return uiModal({ title: o.title || "", message, okLabel: o.okLabel || "OK", cancelLabel: o.cancelLabel || "Anuluj", input: { value: o.value || "", placeholder: o.placeholder || "", type: o.type || "text", inputmode: o.inputmode || "" } });
 }
+/* Pokazanie kodu odzyskiwania. Jeśli poszedł mailem (emailedTo) — komunikat „nie musisz pamiętać".
+   Jeśli nie udało się wysłać — prosimy o ręczne zapisanie (jedyny moment, gdy go widać). */
+function showRecoveryCode(code, who, emailedTo) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "ui-modal";
+    const msg = emailedTo
+      ? `✅ Wysłaliśmy ten kod na e-mail: <b>${esc(emailedTo)}</b>. <b>Nie musisz go pamiętać</b> — znajdziesz go w skrzynce, gdy zapomnisz PIN-u. (Możesz też skopiować poniżej.)`
+      : `Maile nie są jeszcze włączone, więc <b>zapisz ten kod</b> (np. menedżer haseł). Po włączeniu maili kod możesz wysłać sobie przyciskiem „🆘 Kod odzyskiwania" w Ustawieniach → Konta.`;
+    overlay.innerHTML =
+      `<div class="ui-modal-card" role="dialog" aria-modal="true">` +
+      `<h3 class="ui-modal-title">🆘 Kod odzyskiwania${who ? " — " + esc(who) : ""}</h3>` +
+      `<p class="ui-modal-msg">${msg}<br><span class="tiny muted">Kto ma ten kod, może ustawić nowy PIN tego konta.</span></p>` +
+      `<div class="reccode-box">${esc(code)}</div>` +
+      `<div class="ui-modal-actions">` +
+      `<button class="btn reccode-copy">📋 Kopiuj</button>` +
+      `<button class="btn primary reccode-ok">${emailedTo ? "OK" : "Zapisałem/am"}</button>` +
+      `</div></div>`;
+    document.body.appendChild(overlay);
+    const done = () => { overlay.remove(); resolve(true); };
+    overlay.querySelector(".reccode-ok").addEventListener("click", done);
+    overlay.querySelector(".reccode-copy").addEventListener("click", async (e) => {
+      try { await navigator.clipboard.writeText(code); e.target.textContent = "✅ Skopiowano"; }
+      catch { e.target.textContent = "Zaznacz kod i skopiuj ręcznie"; }
+    });
+  });
+}
 
 /* ===================== Administratorzy danych (podmioty na zgodzie) =====================
    Rejestr administratorów danych (RODO). Każda zgoda używa administratora przypisanego
@@ -177,9 +219,36 @@ function normalizeVault(v) {
   }
   const dn = (v.admins.find(a => a.id === v.defaultAdminId) || v.admins[0]).name;
   if (v.producer !== dn) { v.producer = dn; changed = true; } // mirror dla zgodności wstecznej
+  // Biblioteka zgód i dokumentów (wspólna, przypinana do projektów). Migracja starych project.files[] → pozycje „dokument".
+  if (!Array.isArray(v.library)) { v.library = []; changed = true; }
+  (v.projects || []).forEach(p => {
+    if (Array.isArray(p.files) && p.files.length) {
+      for (const f of p.files) {
+        v.library.push({ id: f.id || uuid(), kind: "dokument", name: f.name || "Dokument", desc: "", type: "pdf",
+          fileId: f.id, fileName: f.name, size: f.size, pages: f.pages, hash: f.hash,
+          required: f.required !== false, projectIds: [p.id], createdAt: f.addedAt || new Date().toISOString() });
+      }
+      p.files = [];
+      changed = true;
+    }
+  });
   return changed;
 }
 function defaultAdmin() { return (S.vault.admins || []).find(a => a.id === S.vault.defaultAdminId) || (S.vault.admins || [])[0]; }
+/* Biblioteka: pozycje przypięte do projektu (opcjonalnie filtrowane po rodzaju). */
+function projectLibrary(proj, kind) {
+  if (!proj || !S.vault || !Array.isArray(S.vault.library)) return [];
+  return S.vault.library.filter(i => (i.projectIds || []).includes(proj.id) && (!kind || i.kind === kind));
+}
+/* dokumenty (pliki PDF) przypięte do projektu — do wglądu/akceptacji w kroku zgody */
+function projectDocs(proj) { return projectLibrary(proj).filter(i => i.type === "pdf"); }
+/* adresy, na które wysyłamy kody odzyskiwania / prośby o reset (admin nie musi nic pamiętać) */
+function adminEmails() {
+  const set = new Set();
+  ((S.vault && S.vault.admins) || []).forEach(a => { if (a.email && isValidEmail(a.email)) set.add(a.email.trim()); });
+  if (S.config && S.config.adminEmail && isValidEmail(S.config.adminEmail)) set.add(S.config.adminEmail.trim());
+  return [...set];
+}
 function projectAdmin(proj) {
   const byId = proj && proj.adminId && (S.vault.admins || []).find(a => a.id === proj.adminId);
   return byId || defaultAdmin();
@@ -226,7 +295,14 @@ function consentText(cfg, proj, p) {
   const admin = projectAdmin(proj);
   const acfg = Object.assign({}, cfg, { producer: admin ? admin.name : cfg.producer, _admin: admin });
   const body = (proj.customText || "").trim() || defaultClause(acfg, proj, p);
-  return body + "\n\n" + rodoClause(acfg);
+  // dodatkowe zgody tekstowe przypięte do projektu (z biblioteki) — wchodzą w treść (drukowane i hashowane)
+  let extra = "";
+  for (const it of projectLibrary(proj, "zgoda")) {
+    if (it.type === "text" && (it.text || "").trim()) {
+      extra += "\n\n" + (it.name ? it.name.toUpperCase() + "\n\n" : "") + it.text.trim();
+    }
+  }
+  return body + extra + "\n\n" + rodoClause(acfg);
 }
 
 /* ===================== Audit trail ===================== */
@@ -348,8 +424,10 @@ $("btn-setup").addEventListener("click", async () => {
   const dekRaw = crypto.getRandomValues(new Uint8Array(32)).buffer;
   const salt = b64.enc(crypto.getRandomValues(new Uint8Array(16)));
   const kek = await deriveKEK(pin, salt);
-  const acc = { id: uuid(), name, role: "admin", salt, wrap: await encryptBytes(kek, dekRaw), fails: 0, lockUntil: 0, active: true, createdAt: new Date().toISOString() };
-  S.config = { v: 3, deviceId: uuid(), deviceName: "SignOff · " + (navigator.platform || "urządzenie"), accounts: [acc], chainHead: "GENESIS", lastSync: null };
+  const recCode = genRecoveryCode();
+  const rec = await wrapDEKWith(normalizeRecovery(recCode), dekRaw);
+  const acc = { id: uuid(), name, role: "admin", salt, wrap: await encryptBytes(kek, dekRaw), recSalt: rec.salt, recWrap: rec.wrap, fails: 0, lockUntil: 0, active: true, createdAt: new Date().toISOString() };
+  S.config = { v: 3, deviceId: uuid(), deviceName: "SignOff · " + (navigator.platform || "urządzenie"), accounts: [acc], adminEmail: ADMIN_DEFAULTS.email, chainHead: "GENESIS", lastSync: null };
   await saveConfig();
   S.dekRaw = dekRaw;
   S.key = await importDEK(dekRaw);
@@ -357,6 +435,8 @@ $("btn-setup").addEventListener("click", async () => {
   S.vault = { producer: "offhand Hanna Nobis", email: "", projects: [], activeProjectId: null, sync: { url: "", key: "", auto: true, autoEmail: true } };
   normalizeVault(S.vault);
   await saveVault();
+  const emailedTo = await emailRecoveryCode(recCode, name);
+  await showRecoveryCode(recCode, name, emailedTo);
   enterHome();
 });
 
@@ -417,6 +497,9 @@ async function login() {
     await saveConfig();
     S.vault = await decryptJSON(S.key, await metaGet("vault"));
     if (normalizeVault(S.vault)) await saveVault();
+    // adres, na który ekran logowania wysyła prośby o reset PIN-u (dostępny zanim ktoś się zaloguje)
+    const da = defaultAdmin();
+    if (da && da.email && S.config.adminEmail !== da.email) { S.config.adminEmail = da.email; await saveConfig(); }
     await loadRecords();
     enterHome();
   } catch {
@@ -443,6 +526,32 @@ function renderPinDots() {
   box.innerHTML = h;
 }
 $("lock-pin").addEventListener("input", renderPinDots);
+
+/* --- reset PIN-u z ekranu logowania --- */
+/* (1) kod odzyskiwania: ustaw nowy PIN samodzielnie i zaloguj się */
+async function recoverWithCode(code, newPin) {
+  const norm = normalizeRecovery(code);
+  for (const acc of (S.config ? S.config.accounts : [])) {
+    if (!acc.active || !acc.recSalt || !acc.recWrap) continue;
+    let dekRaw;
+    try {
+      const kek = await deriveKEK(norm, acc.recSalt);
+      dekRaw = await decryptBytes(kek, acc.recWrap);
+    } catch { continue; }
+    // kod pasuje do tego konta — ustaw nowy PIN i zaloguj
+    S.dekRaw = dekRaw;
+    const wrapped = await wrapDEKWith(newPin, dekRaw);
+    acc.salt = wrapped.salt; acc.wrap = wrapped.wrap; acc.fails = 0; acc.lockUntil = 0;
+    await saveConfig(); scheduleSync();
+    S.key = await importDEK(dekRaw);
+    S.user = acc;
+    S.vault = await decryptJSON(S.key, await metaGet("vault"));
+    if (normalizeVault(S.vault)) await saveVault();
+    await loadRecords();
+    return acc;
+  }
+  return null;
+}
 
 async function loadRecords() {
   const rows = await getAll("records");
@@ -742,6 +851,37 @@ function buildSmtp() {
   if (!host) return null;
   return { host, port: Number(port) || 465, user: m.email, pass: m.pass, from: (m.from ? `${m.from} <${m.email}>` : m.email) };
 }
+/* Nadawca pochodzi z aplikacji (adres + hasło aplikacji wpisane przez administratora).
+   Zwraca fragment treści żądania { smtp } albo null, gdy nadawca nie jest skonfigurowany. */
+function mailOutgoing() {
+  const s = buildSmtp();
+  return s ? { smtp: s } : null;
+}
+function mailEnabled() { return !!mailOutgoing(); }
+/* Wysyła kod odzyskiwania na adres(y) administratora, żeby nikt nie musiał go pamiętać.
+   Zwraca listę adresów (string) przy sukcesie albo null, gdy maile niedostępne. */
+async function emailRecoveryCode(code, accName) {
+  const out = mailOutgoing();
+  if (!out || !navigator.onLine) return null;
+  const tos = adminEmails();
+  if (!tos.length) return null;
+  try {
+    const resp = await fetch(FN_EMAIL_URL, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        to: tos.join(", "),
+        subject: `SignOff — kod odzyskiwania (${accName})`,
+        text: `Kod odzyskiwania dla konta „${accName}":\n\n    ${code}\n\n` +
+          `Zachowaj tę wiadomość — nie musisz nic zapisywać.\n` +
+          `Gdy zapomnisz PIN-u: ekran logowania → „Nie pamiętam PIN-u" → wpisz ten kod i ustaw nowy PIN.\n\n` +
+          `Kto ma ten kod, może zresetować PIN tego konta — nie przekazuj go dalej.\n\n` +
+          `(Wiadomość automatyczna z aplikacji SignOff by Offhand.)`,
+        ...out,
+      }),
+    });
+    return resp.ok ? tos.join(", ") : null;
+  } catch { return null; }
+}
 /* ===================== Firebase Firestore (chmura, REST — bez SDK) =====================
    Zaszyfrowana kopia (E2E) trzymana w Firestore. Duży backup dzielony na fragmenty
    (limit 1 MB/dokument): metadane w kolekcji „signoff", fragmenty w „signoff_chunks". */
@@ -994,26 +1134,128 @@ $("btn-sync-restore").addEventListener("click", async () => {
 });
 
 /* ===================== Pliki projektu (PDF do podpisu) ===================== */
-async function addFileToProject(proj, file) {
-  if (file.type !== "application/pdf") throw new Error("Obsługiwane są pliki PDF.");
-  if (file.size > 15 * 1024 * 1024) throw new Error("Plik przekracza 15 MB.");
-  const buf = await file.arrayBuffer();
+const MAX_CONTENT_FILE = 15 * 1024 * 1024;
+/* Zapisuje treść-plik (PDF, a Word .docx konwertuje do PDF) do zaszyfrowanego magazynu.
+   Zwraca metadane pozycji typu „pdf" — bez przypisania do projektu. */
+async function addContentFile(file) {
+  const lower = (file.name || "").toLowerCase();
+  if (file.size > MAX_CONTENT_FILE) throw new Error("Plik przekracza 15 MB.");
+  let buf, name = file.name;
+  if (file.type === "application/pdf" || lower.endsWith(".pdf")) {
+    buf = await file.arrayBuffer();
+  } else if (lower.endsWith(".docx")) {
+    let paras;
+    try { paras = await docxToParagraphs(await file.arrayBuffer()); }
+    catch { throw new Error("Nie udało się odczytać pliku Word. Zapisz go w Wordzie jako PDF i wgraj PDF."); }
+    if (!paras.some(p => p.trim())) throw new Error("Plik Word wygląda na pusty lub nieobsługiwany. Zapisz jako PDF i wgraj PDF.");
+    buf = await paragraphsToPdfBytes(paras, file.name.replace(/\.docx$/i, ""));
+    name = file.name.replace(/\.docx$/i, ".pdf");
+  } else {
+    throw new Error("Obsługiwane pliki: PDF lub Word (.docx). Stary .doc zapisz w Wordzie jako PDF.");
+  }
   const hash = await sha256hex(buf);
   let pages = 0;
   try { pages = (await window.PDFLib.PDFDocument.load(buf)).getPageCount(); } catch {}
-  const id = uuid();
+  const fileId = uuid();
   const pack = await encryptBytes(S.key, buf);
-  await tx("files", "readwrite", s => s.put({ id, pack }));
-  proj.files.push({ id, name: file.name, size: file.size, hash, pages, required: true, addedAt: new Date().toISOString() });
-  await saveVault();
+  await tx("files", "readwrite", s => s.put({ id: fileId, pack }));
+  return { fileId, fileName: name, size: buf.byteLength, pages, hash, type: "pdf" };
 }
 async function openFile(fileMeta) {
-  const row = await storeGet("files", fileMeta.id);
+  const id = fileMeta.fileId || fileMeta.id;
+  const row = await storeGet("files", id);
   if (!row) { uiAlert("Nie znaleziono pliku w magazynie."); return; }
   const buf = await decryptBytes(S.key, row.pack);
   const url = URL.createObjectURL(new Blob([buf], { type: "application/pdf" }));
   window.open(url, "_blank");
   setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+
+/* ---- Word (.docx) → tekst → PDF (offline, bez nowych zależności) ---- */
+function decodeXmlEntities(s) {
+  return String(s)
+    .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'")
+    .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(+d))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&amp;/g, "&");
+}
+async function inflateRaw(u8) {
+  const ds = new DecompressionStream("deflate-raw");
+  const stream = new Response(new Blob([u8])).body.pipeThrough(ds);
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+/* Wyciąga jeden wpis z archiwum ZIP (przez centralny katalog). Zwraca tekst albo null. */
+async function unzipEntryText(arrayBuffer, wantName) {
+  const u8 = new Uint8Array(arrayBuffer);
+  const dv = new DataView(arrayBuffer);
+  let eocd = -1;
+  for (let i = u8.length - 22; i >= 0 && i >= u8.length - 22 - 65536; i--) {
+    if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  }
+  if (eocd < 0) throw new Error("ZIP: brak EOCD");
+  const count = dv.getUint16(eocd + 10, true);
+  let p = dv.getUint32(eocd + 16, true);
+  for (let n = 0; n < count; n++) {
+    if (dv.getUint32(p, true) !== 0x02014b50) break;
+    const method = dv.getUint16(p + 10, true);
+    const compSize = dv.getUint32(p + 20, true);
+    const nameLen = dv.getUint16(p + 28, true);
+    const extraLen = dv.getUint16(p + 30, true);
+    const commentLen = dv.getUint16(p + 32, true);
+    const lhOffset = dv.getUint32(p + 42, true);
+    const name = td.decode(u8.subarray(p + 46, p + 46 + nameLen));
+    if (name === wantName) {
+      if (dv.getUint32(lhOffset, true) !== 0x04034b50) throw new Error("ZIP: zły nagłówek lokalny");
+      const lNameLen = dv.getUint16(lhOffset + 26, true);
+      const lExtraLen = dv.getUint16(lhOffset + 28, true);
+      const dataStart = lhOffset + 30 + lNameLen + lExtraLen;
+      const comp = u8.subarray(dataStart, dataStart + compSize);
+      if (method === 0) return td.decode(comp);
+      if (method === 8) return td.decode(await inflateRaw(comp));
+      throw new Error("ZIP: nieobsługiwana kompresja " + method);
+    }
+    p += 46 + nameLen + extraLen + commentLen;
+  }
+  return null;
+}
+async function docxToParagraphs(arrayBuffer) {
+  const xml = await unzipEntryText(arrayBuffer, "word/document.xml");
+  if (!xml) throw new Error("Brak word/document.xml");
+  const paras = [];
+  const pRe = /<w:p\b[^>]*>([\s\S]*?)<\/w:p>/g;
+  let m;
+  while ((m = pRe.exec(xml))) {
+    let txt = "";
+    const tRe = /<w:t\b[^>]*>([\s\S]*?)<\/w:t>|<w:tab\b[^>]*\/?>|<w:br\b[^>]*\/?>/g;
+    let tm;
+    while ((tm = tRe.exec(m[1]))) {
+      if (tm[1] !== undefined) txt += decodeXmlEntities(tm[1]);
+      else if (tm[0].indexOf("<w:tab") === 0) txt += "    ";
+      else txt += "\n";
+    }
+    paras.push(txt.replace(/\s+$/g, ""));
+  }
+  // usuń nadmiarowe puste akapity na początku/końcu
+  while (paras.length && !paras[0].trim()) paras.shift();
+  while (paras.length && !paras[paras.length - 1].trim()) paras.pop();
+  return paras;
+}
+async function paragraphsToPdfBytes(paragraphs, title) {
+  const { PDFDocument, rgb } = window.PDFLib;
+  const doc = await PDFDocument.create();
+  const { font, fontB } = await loadFonts(doc);
+  const A4 = [595.28, 841.89], M = 50, W = A4[0] - 2 * M;
+  const ink = rgb(0.06, 0.11, 0.18);
+  let page = doc.addPage(A4), y = A4[1] - M;
+  const ensure = (need) => { if (y - need < M) { page = doc.addPage(A4); y = A4[1] - M; } };
+  const draw = (s, { size = 10, bold = false, gap = 5 } = {}) => {
+    const f = bold ? fontB : font;
+    const lines = s ? wrapText(s.replace(/\t/g, "    "), f, size, W) : [""];
+    for (const ln of lines) { ensure(size + gap); if (ln) page.drawText(ln, { x: M, y, size, font: f, color: ink }); y -= size + gap; }
+  };
+  if (title) draw(title, { size: 14, bold: true, gap: 10 });
+  for (const para of paragraphs) draw(para, { size: 10, gap: 5 });
+  return await doc.save();
 }
 
 /* ===================== Kreator ===================== */
@@ -1080,11 +1322,11 @@ function validateStep(n) {
   if (n === 2) {
     if (!$("c-image").checked || !$("c-rodo").checked) { err.textContent = "Obowiązkowe zgody (✱ art. 81 i RODO) muszą być zaznaczone."; err.hidden = false; return false; }
     const proj = activeProject();
-    for (const f of proj.files) {
-      if (f.required !== false && !S.wizard.attachChecks[f.id]) { err.textContent = `Zaznacz akceptację obowiązkowego dokumentu: ${f.name}.`; err.hidden = false; return false; }
+    for (const it of projectDocs(proj)) {
+      if (it.required !== false && !S.wizard.attachChecks[it.fileId]) { err.textContent = `Zaznacz akceptację obowiązkowego dokumentu: ${it.fileName || it.name}.`; err.hidden = false; return false; }
     }
     S.wizard.consents = { image81: true, rodo: true, marketing: $("c-marketing").checked };
-    S.wizard.attachments = proj.files.map(f => ({ fileId: f.id, name: f.name, hash: f.hash, required: f.required !== false, accepted: !!S.wizard.attachChecks[f.id] }));
+    S.wizard.attachments = projectDocs(proj).map(it => ({ fileId: it.fileId, name: it.fileName || it.name, hash: it.hash, required: it.required !== false, accepted: !!S.wizard.attachChecks[it.fileId], kind: it.kind }));
     return true;
   }
   if (n === 3) {
@@ -1120,18 +1362,19 @@ function prepareConsentStep() {
   const ab = $("attach-box");
   ab.innerHTML = "";
   S.wizard.attachChecks = {};
-  for (const f of proj.files) {
-    const required = f.required !== false;
-    const big = (f.pages || 0) > 10;
+  for (const it of projectDocs(proj)) {
+    const fname = it.fileName || it.name;
+    const required = it.required !== false;
+    const big = (it.pages || 0) > 10;
     const row = document.createElement("div");
     row.className = required ? "doc-accept" : "attach-row";
     row.innerHTML = `
-      <div class="attach-info">📎 <b>${esc(f.name)}</b> <span class="doc-pages">${f.pages ? f.pages + " str." : ""}${required ? "" : " · do wglądu"}</span></div>
+      <div class="attach-info">📎 <b>${esc(fname)}</b>${it.desc ? ` <span class="tiny muted">${esc(it.desc)}</span>` : ""} <span class="doc-pages">${it.pages ? it.pages + " str." : ""}${required ? "" : " · do wglądu"}</span></div>
       <button class="btn" type="button" data-open>👁 Otwórz dokument</button>
       ${required ? `<label class="check"><input type="checkbox" data-acc required><span>${big ? "Potwierdzam, że zapoznałem/am się z <b>całością</b> dokumentu i akceptuję go" : "Zapoznałem/am się z dokumentem i akceptuję go"} <span class="req-star">✱ obowiązkowe</span></span></label>` : ""}`;
-    row.querySelector("[data-open]").addEventListener("click", () => { openFile(f); auditEvent(S.wizard, "dokument", `otwarto: ${f.name}`); });
+    row.querySelector("[data-open]").addEventListener("click", () => { openFile(it); auditEvent(S.wizard, "dokument", `otwarto: ${fname}`); });
     const cb = row.querySelector("[data-acc]");
-    if (cb) cb.addEventListener("change", () => { S.wizard.attachChecks[f.id] = cb.checked; auditEvent(S.wizard, "dokument", `${f.name}: ${cb.checked ? "zaakceptowano" : "cofnięto"}`); });
+    if (cb) cb.addEventListener("change", () => { S.wizard.attachChecks[it.fileId] = cb.checked; auditEvent(S.wizard, "dokument", `${fname}: ${cb.checked ? "zaakceptowano" : "cofnięto"}`); });
     ab.appendChild(row);
   }
   ["c-image", "c-rodo", "c-marketing"].forEach(id => {
@@ -1359,8 +1602,8 @@ $("btn-done-home").addEventListener("click", enterHome);
 /* Wysyłka maila przez Firebase Cloud Function (Resend po stronie serwera —
    klucz API nigdy nie trafia do przeglądarki). Adres funkcji = FN_EMAIL_URL. */
 async function serverEmail(r) {
-  const smtp = buildSmtp();
-  if (!smtp || !isValidEmail(r.person.email) || !navigator.onLine) return false;
+  const out = mailOutgoing();
+  if (!out || !isValidEmail(r.person.email) || !navigator.onLine) return false;
   try {
     const bytes = await buildPDF(r);
     const resp = await fetch(FN_EMAIL_URL, {
@@ -1372,7 +1615,7 @@ async function serverEmail(r) {
         text: `Dzień dobry,\n\nw załączeniu kopia zgody podpisanej w dniu ${new Date(r.createdAt).toLocaleString("pl-PL")}.\nID dokumentu: ${r.id}\nSHA-256: ${r.hash}\n\nPozdrawiamy,\n${r.producer}`,
         filename: `zgoda-${r.person.last}-${r.person.first}.pdf`.toLowerCase().replace(/\s+/g, "-"),
         pdfBase64: b64.enc(bytes),
-        smtp,
+        ...out,
       }),
     });
     if (!resp.ok) return false;
@@ -1418,7 +1661,7 @@ async function markSent(id, status) {
 let flushing = false;
 async function flushOutbox() {
   const c = syncCfg();
-  if (flushing || c.autoEmail === false || !buildSmtp() || !navigator.onLine || !S.key) return;
+  if (flushing || c.autoEmail === false || !mailEnabled() || !navigator.onLine || !S.key) return;
   flushing = true;
   try {
     for (const o of await getAll("outbox")) {
@@ -1652,7 +1895,7 @@ function enterSettings() {
     $("mail-email").value = m.email || "hankanobis@offhandfilms.com"; $("mail-pass").value = m.pass || "";
     $("mail-from").value = m.from || ""; $("mail-host").value = m.host || ""; $("mail-port").value = m.port || "";
     $("mail-status").textContent = "";
-    renderProjects(); renderAccounts(); renderOutbox(); renderStorageInfo();
+    renderProjects(); renderLibrary(); renderAccounts(); renderOutbox(); renderStorageInfo();
   }
   show("view-settings");
 }
@@ -1731,7 +1974,7 @@ $("btn-mail-save").addEventListener("click", async () => {
 $("btn-mail-test").addEventListener("click", async () => {
   const st = $("mail-status");
   const smtp = smtpFromFields();
-  if (!smtp) { st.textContent = "🛑 Uzupełnij adres e-mail i hasło nadawcy, potem spróbuj ponownie."; return; }
+  if (!smtp) { st.textContent = "🛑 Najpierw wpisz adres e-mail i hasło aplikacji, potem spróbuj ponownie."; return; }
   if (!navigator.onLine) { st.textContent = "🛑 Brak internetu — test wymaga połączenia."; return; }
   const to = (await uiPrompt("Na jaki adres wysłać próbny e-mail?", $("mail-email").value.trim()) || "").trim();
   if (!to) { st.textContent = "Anulowano test."; return; }
@@ -1775,13 +2018,17 @@ function renderProjects() {
       <div class="proj-allowed"><span class="tiny muted">Uprawnieni (nikt zaznaczony = wszyscy):</span></div>
       <label class="check tiny-check photo-req"><input type="checkbox" ${p.requirePhoto ? "checked" : ""}><span>📷 Zdjęcie-dowód <b>obowiązkowe</b> w tym projekcie</span></label>
       <div class="proj-rec">💡 Rekomendacja: dla bohaterów pierwszoplanowych i wywiadów włącz zdjęcie obowiązkowe — istotnie wzmacnia dowód udzielenia zgody. Dla scen z tłem / przechodniami wystarczy tryb zalecany (domyślny).</div>
-      <div class="proj-files"></div>
+      <div class="proj-lib"><span class="tiny muted">Przypięte zgody i dokumenty:</span></div>
+      <div class="wnav-mini proj-lib-actions">
+        <select class="proj-pin-sel"><option value="">➕ Przypnij istniejącą…</option></select>
+        <button class="btn" data-act="newzgoda">＋ Nowa zgoda tu</button>
+        <button class="btn" data-act="newdok">＋ Nowy dokument tu</button>
+      </div>
       <div class="wnav-mini">
         <button class="btn" data-act="savetext">💾 Zapisz</button>
-        <button class="btn" data-act="addfile">📎 Dodaj plik PDF do podpisu</button>
         <button class="btn danger" data-act="del">🗑 Usuń projekt</button>
       </div>
-      <input type="file" accept="application/pdf" hidden>`;
+      <input type="file" class="proj-newfile" accept=".pdf,.docx,application/pdf" hidden>`;
     // zdjęcie obowiązkowe
     card.querySelector(".photo-req input").addEventListener("change", async (e) => {
       p.requirePhoto = e.target.checked;
@@ -1815,34 +2062,62 @@ function renderProjects() {
       });
       allowedBox.appendChild(lbl);
     }
-    // pliki
-    const filesBox = card.querySelector(".proj-files");
-    const renderFiles = () => {
-      filesBox.innerHTML = p.files.length
-        ? p.files.map((f, i) => `<div class="attach-row">
-            <div class="attach-info">📎 <b>${esc(f.name)}</b> <span class="tiny muted">(${(f.size / 1024).toFixed(0)} KB${f.pages ? ", " + f.pages + " str." : ""})</span></div>
-            <label class="check tiny-check"><input type="checkbox" data-req="${i}" ${f.required !== false ? "checked" : ""}><span>obowiązkowy ${f.required !== false ? '<span class="req-star">✱</span>' : ""}</span></label>
-            <button class="btn" data-open="${i}">👁</button><button class="btn danger" data-rm="${i}">✕</button></div>`).join("")
-        : '<p class="tiny muted">Brak załączonych dokumentów.</p>';
-      filesBox.querySelectorAll("[data-req]").forEach(cb => cb.addEventListener("change", async () => {
-        p.files[+cb.dataset.req].required = cb.checked; await saveVault(); renderFiles();
-      }));
-      filesBox.querySelectorAll("[data-open]").forEach(b => b.addEventListener("click", () => openFile(p.files[+b.dataset.open])));
-      filesBox.querySelectorAll("[data-rm]").forEach(b => b.addEventListener("click", async () => {
-        const f = p.files[+b.dataset.rm];
-        if (!await uiConfirm(`Usunąć plik „${f.name}” z projektu? Już podpisane zgody zachowują jego nazwę i hash.`)) return;
-        p.files.splice(+b.dataset.rm, 1);
-        await saveVault(); renderFiles();
+    // przypięte zgody i dokumenty (z biblioteki)
+    const libBox = card.querySelector(".proj-lib");
+    const pinSel = card.querySelector(".proj-pin-sel");
+    const renderProjLib = () => {
+      const pinned = projectLibrary(p);
+      libBox.innerHTML = `<span class="tiny muted">Przypięte zgody i dokumenty:</span>` + (pinned.length
+        ? pinned.map(it => `<div class="attach-row" data-id="${it.id}">
+            <div class="attach-info">${it.kind === "zgoda" ? "📝" : "📎"} <b>${esc(it.name || it.fileName || "")}</b>${it.desc ? ` <span class="tiny muted">${esc(it.desc)}</span>` : ""} <span class="tiny muted">${it.type === "pdf" ? (it.pages ? it.pages + " str." : "PDF") : "tekst"}${it.required !== false ? " · ✱ obowiązkowa" : ""}</span></div>
+            ${it.type === "pdf" ? `<button class="btn" data-view="${it.id}">👁</button>` : ""}<button class="btn danger" data-unpin="${it.id}">Odepnij</button></div>`).join("")
+        : `<p class="tiny muted">Brak — przypnij istniejącą lub dodaj nową poniżej.</p>`);
+      libBox.querySelectorAll("[data-view]").forEach(b => b.addEventListener("click", () => openFile(S.vault.library.find(x => x.id === b.dataset.view))));
+      libBox.querySelectorAll("[data-unpin]").forEach(b => b.addEventListener("click", async () => {
+        const it = S.vault.library.find(x => x.id === b.dataset.unpin); if (!it) return;
+        it.projectIds = (it.projectIds || []).filter(x => x !== p.id);
+        await saveVault(); renderProjLib(); fillPinSel(); renderLibrary();
       }));
     };
-    renderFiles();
-    const fileInput = card.querySelector("input[type=file]");
-    card.querySelector("[data-act=addfile]").addEventListener("click", () => fileInput.click());
-    fileInput.addEventListener("change", async (e) => {
-      const f = e.target.files[0]; e.target.value = "";
-      if (!f) return;
-      try { await addFileToProject(p, f); renderFiles(); }
-      catch (ex) { uiAlert(ex.message); }
+    const fillPinSel = () => {
+      const avail = (S.vault.library || []).filter(it => !(it.projectIds || []).includes(p.id));
+      pinSel.innerHTML = `<option value="">➕ Przypnij istniejącą…</option>` +
+        avail.map(it => `<option value="${it.id}">${it.kind === "zgoda" ? "📝" : "📎"} ${esc(it.name || it.fileName || "")}</option>`).join("");
+    };
+    renderProjLib(); fillPinSel();
+    pinSel.addEventListener("change", async () => {
+      const it = S.vault.library.find(x => x.id === pinSel.value); if (!it) return;
+      it.projectIds = it.projectIds || []; if (!it.projectIds.includes(p.id)) it.projectIds.push(p.id);
+      await saveVault(); renderProjLib(); fillPinSel(); renderLibrary();
+    });
+    // nowa zgoda/dokument z poziomu projektu
+    const newItem = async (kind) => {
+      const name = (await uiPrompt(`Nazwa nowej ${kind === "zgoda" ? "zgody" : "dokumentu"}:`) || "").trim();
+      if (!name) return;
+      const choice = await uiConfirm(`Treść „${name}": wkleić tekst czy wgrać PDF? (Word też zadziała przy „Wgraj PDF".)`, { okLabel: "Wklej tekst", cancelLabel: "Wgraj PDF" });
+      if (choice) {
+        const text = (await uiPrompt(`Wklej treść „${name}":`, { type: "text" }) || "").trim();
+        if (!text) return;
+        S.vault.library.push({ id: uuid(), kind, name, desc: "", type: "text", text, required: true, projectIds: [p.id], createdAt: new Date().toISOString() });
+        await saveVault(); renderProjLib(); fillPinSel(); renderLibrary();
+      } else {
+        card.querySelector(".proj-newfile").dataset.kind = kind;
+        card.querySelector(".proj-newfile").dataset.name = name;
+        card.querySelector(".proj-newfile").click();
+      }
+    };
+    card.querySelector("[data-act=newzgoda]").addEventListener("click", () => newItem("zgoda"));
+    card.querySelector("[data-act=newdok]").addEventListener("click", () => newItem("dokument"));
+    const newFile = card.querySelector(".proj-newfile");
+    newFile.addEventListener("change", async (e) => {
+      const f = e.target.files[0]; e.target.value = ""; if (!f) return;
+      const kind = newFile.dataset.kind || "dokument", name = newFile.dataset.name || f.name.replace(/\.(pdf|docx)$/i, "");
+      try {
+        const meta = await addContentFile(f);
+        S.vault.library.push({ id: uuid(), kind, name, desc: "", required: true, projectIds: [p.id], createdAt: new Date().toISOString(), ...meta });
+        await saveVault(); renderProjLib(); fillPinSel(); renderLibrary();
+        if (f.name.toLowerCase().endsWith(".docx")) uiAlert("Word zamieniony na PDF i przypięty. Sprawdź treść (👁).");
+      } catch (ex) { uiAlert(ex.message); }
     });
     card.querySelector("[data-act=savetext]").addEventListener("click", async () => {
       const newName = card.querySelector(".proj-name").value.trim();
@@ -1862,15 +2137,114 @@ $("btn-add-project").addEventListener("click", async () => {
   if (!name) { uiAlert("Podaj nazwę projektu."); return; }
   S.vault.projects.push({ id: uuid(), name, customText: "", files: [], allowedUserIds: [], requirePhoto: false });
   $("new-project-name").value = "";
-  await saveVault(); renderProjects();
+  await saveVault(); renderProjects(); renderLibrary();
+});
+
+/* --- biblioteka zgód i dokumentów (wspólna, przypinana do projektów) --- */
+function libProjectTags(it) {
+  const names = (it.projectIds || []).map(id => (S.vault.projects.find(p => p.id === id) || {}).name).filter(Boolean);
+  return names.length ? names.map(n => `<span class="lib-tag">📁 ${esc(n)}</span>`).join("") : `<span class="tiny muted">nieprzypięta</span>`;
+}
+function renderLibrary() {
+  if (!Array.isArray(S.vault.library)) S.vault.library = [];
+  for (const kind of ["zgoda", "dokument"]) {
+    const box = $("lib-list-" + kind); if (!box) continue;
+    box.innerHTML = "";
+    const items = S.vault.library.filter(i => i.kind === kind);
+    if (!items.length) { box.innerHTML = `<p class="tiny muted">Brak pozycji.</p>`; continue; }
+    for (const it of items) box.appendChild(libCard(it));
+  }
+}
+function libCard(it) {
+  const card = document.createElement("div");
+  card.className = "lib-card";
+  const projChecks = (S.vault.projects || []).length
+    ? (S.vault.projects).map(p => `<label class="check tiny-check"><input type="checkbox" data-proj="${p.id}" ${(it.projectIds || []).includes(p.id) ? "checked" : ""}><span>${esc(p.name)}</span></label>`).join("")
+    : `<span class="tiny muted">Brak projektów — utwórz najpierw projekt.</span>`;
+  card.innerHTML = `
+    <div class="lib-head"><b>${it.kind === "zgoda" ? "📝" : "📎"} ${esc(it.name || "(bez nazwy)")}</b> <span class="lib-tags">${libProjectTags(it)}</span></div>
+    <label class="tiny">Nazwa<input class="lib-c-name" value="${esc(it.name || "")}"></label>
+    <label class="tiny">Krótki opis<input class="lib-c-desc" value="${esc(it.desc || "")}" placeholder="opis wyświetlany"></label>
+    ${it.type === "text"
+      ? `<label class="tiny">Treść<textarea class="lib-c-text" rows="4">${esc(it.text || "")}</textarea></label>`
+      : `<div class="attach-row"><div class="attach-info">📄 <b>${esc(it.fileName || "plik.pdf")}</b> <span class="tiny muted">(${((it.size || 0) / 1024).toFixed(0)} KB${it.pages ? ", " + it.pages + " str." : ""})</span></div><button class="btn" data-act="view">👁</button><button class="btn" data-act="replace">↻ Zamień plik</button></div>`}
+    <label class="check tiny-check"><input type="checkbox" class="lib-c-req" ${it.required !== false ? "checked" : ""}><span>akceptacja obowiązkowa przy podpisie</span></label>
+    <div class="lib-projassign"><span class="tiny muted">Przypięte do projektów:</span>${projChecks}</div>
+    <div class="wnav-mini">
+      <button class="btn" data-act="save">💾 Zapisz</button>
+      <button class="btn" data-act="copy">⧉ Kopiuj</button>
+      <button class="btn danger" data-act="del">🗑 Usuń</button>
+    </div>
+    <input type="file" class="lib-replace-file" accept=".pdf,.docx,application/pdf" hidden>`;
+  card.querySelectorAll("[data-proj]").forEach(cb => cb.addEventListener("change", async () => {
+    const pid = cb.dataset.proj;
+    it.projectIds = it.projectIds || [];
+    if (cb.checked) { if (!it.projectIds.includes(pid)) it.projectIds.push(pid); }
+    else it.projectIds = it.projectIds.filter(x => x !== pid);
+    await saveVault(); card.querySelector(".lib-tags").innerHTML = libProjectTags(it); renderProjects();
+  }));
+  const reqCb = card.querySelector(".lib-c-req");
+  reqCb.addEventListener("change", async () => { it.required = reqCb.checked; await saveVault(); });
+  const view = card.querySelector("[data-act=view]"); if (view) view.addEventListener("click", () => openFile(it));
+  const replaceBtn = card.querySelector("[data-act=replace]"), replaceInput = card.querySelector(".lib-replace-file");
+  if (replaceBtn) replaceBtn.addEventListener("click", () => replaceInput.click());
+  replaceInput.addEventListener("change", async (e) => {
+    const f = e.target.files[0]; e.target.value = ""; if (!f) return;
+    try {
+      const meta = await addContentFile(f);
+      Object.assign(it, { type: "pdf", fileId: meta.fileId, fileName: meta.fileName, size: meta.size, pages: meta.pages, hash: meta.hash });
+      delete it.text;
+      await saveVault(); renderLibrary();
+      uiAlert(f.name.toLowerCase().endsWith(".docx") ? "Skonwertowano z Worda do PDF — sprawdź treść (👁)." : "Zamieniono plik.");
+    } catch (ex) { uiAlert(ex.message); }
+  });
+  card.querySelector("[data-act=save]").addEventListener("click", async () => {
+    it.name = card.querySelector(".lib-c-name").value.trim() || it.name;
+    it.desc = card.querySelector(".lib-c-desc").value.trim();
+    const ta = card.querySelector(".lib-c-text"); if (ta) it.text = ta.value;
+    await saveVault(); renderLibrary(); renderProjects(); uiAlert("Zapisano.");
+  });
+  card.querySelector("[data-act=copy]").addEventListener("click", async () => {
+    const copy = JSON.parse(JSON.stringify(it));
+    copy.id = uuid(); copy.name = (it.name || "") + " (kopia)"; copy.projectIds = []; copy.createdAt = new Date().toISOString();
+    S.vault.library.push(copy); await saveVault(); renderLibrary();
+  });
+  card.querySelector("[data-act=del]").addEventListener("click", async () => {
+    if (!await uiConfirm(`Usunąć „${it.name}" z biblioteki? Już podpisane zgody zachowują swoją treść i hash.`)) return;
+    S.vault.library = S.vault.library.filter(x => x.id !== it.id);
+    await saveVault(); renderLibrary(); renderProjects();
+  });
+  return card;
+}
+$("btn-lib-addtext").addEventListener("click", async () => {
+  const st = $("lib-status");
+  const name = $("lib-name").value.trim(), text = $("lib-text").value;
+  if (!name) { st.textContent = "🛑 Podaj nazwę."; return; }
+  if (!text.trim()) { st.textContent = "🛑 Wklej treść albo użyj „Dodaj z pliku”."; return; }
+  S.vault.library.push({ id: uuid(), kind: $("lib-kind").value, name, desc: $("lib-desc").value.trim(), type: "text", text, required: true, projectIds: [], createdAt: new Date().toISOString() });
+  await saveVault();
+  $("lib-name").value = ""; $("lib-desc").value = ""; $("lib-text").value = "";
+  st.textContent = "✅ Dodano. Przypnij do projektów poniżej.";
+  renderLibrary();
+});
+$("btn-lib-addfile").addEventListener("click", () => $("lib-file").click());
+$("lib-file").addEventListener("change", async (e) => {
+  const f = e.target.files[0]; e.target.value = ""; if (!f) return;
+  const st = $("lib-status");
+  const name = $("lib-name").value.trim() || f.name.replace(/\.(pdf|docx)$/i, "");
+  st.textContent = "Wczytuję plik…";
+  try {
+    const meta = await addContentFile(f);
+    S.vault.library.push({ id: uuid(), kind: $("lib-kind").value, name, desc: $("lib-desc").value.trim(), required: true, projectIds: [], createdAt: new Date().toISOString(), ...meta });
+    await saveVault();
+    $("lib-name").value = ""; $("lib-desc").value = ""; $("lib-text").value = "";
+    st.textContent = f.name.toLowerCase().endsWith(".docx") ? "✅ Word zamieniony na PDF i dodany. Sprawdź treść (👁) i przypnij do projektów." : "✅ Dodano. Przypnij do projektów poniżej.";
+    renderLibrary();
+  } catch (ex) { st.textContent = "🛑 " + ex.message; }
 });
 
 /* --- konta użytkowników (tylko admin) --- */
-async function wrapDEKForPin(pin) {
-  const salt = b64.enc(crypto.getRandomValues(new Uint8Array(16)));
-  const kek = await deriveKEK(pin, salt);
-  return { salt, wrap: await encryptBytes(kek, S.dekRaw) };
-}
+async function wrapDEKForPin(pin) { return wrapDEKWith(pin); }
 function renderAccounts() {
   const box = $("accounts-list");
   box.innerHTML = "";
@@ -1881,6 +2255,7 @@ function renderAccounts() {
       <div class="attach-info"><b>${esc(acc.name)}</b>
         <span class="tiny muted">${roleLabel(acc.role)}${acc.active ? "" : " · DEZAKTYWOWANE"}${acc.id === S.user.id ? " · (to Ty)" : ""}</span></div>
       <button class="btn" data-act="reset">${acc.id === S.user.id ? "🔑 Zmień mój PIN" : "🔑 Reset PIN"}</button>
+      <button class="btn" data-act="rec">🆘 Kod odzyskiwania${acc.recWrap ? "" : " (brak)"}</button>
       ${acc.id !== S.user.id ? `<button class="btn" data-act="toggle">${acc.active ? "⏸ Dezaktywuj" : "▶ Aktywuj"}</button><button class="btn danger" data-act="del">🗑</button>` : ""}
       <div class="reset-box" hidden>
         <input type="password" placeholder="nowy PIN (6+ cyfr)" inputmode="numeric" class="reset-pin">
@@ -1888,6 +2263,16 @@ function renderAccounts() {
       </div>`;
     row.querySelector("[data-act=reset]").addEventListener("click", () => {
       const rb = row.querySelector(".reset-box"); rb.hidden = !rb.hidden;
+    });
+    row.querySelector("[data-act=rec]").addEventListener("click", async () => {
+      if (acc.recWrap && !await uiConfirm(`Wygenerować NOWY kod odzyskiwania dla „${acc.name}"? Poprzedni kod przestanie działać.`)) return;
+      const recCode = genRecoveryCode();
+      const rec = await wrapDEKWith(normalizeRecovery(recCode));
+      acc.recSalt = rec.salt; acc.recWrap = rec.wrap;
+      await saveConfig(); scheduleSync();
+      const emailedTo = await emailRecoveryCode(recCode, acc.name);
+      await showRecoveryCode(recCode, acc.name, emailedTo);
+      renderAccounts();
     });
     row.querySelector("[data-act=confirm]").addEventListener("click", async () => {
       const pin = row.querySelector(".reset-pin").value;
@@ -1924,10 +2309,14 @@ $("btn-add-acc").addEventListener("click", async () => {
   if (!PIN_RE.test(pin)) return fail("PIN: min. 6 cyfr.");
   if (pin !== pin2) return fail("PIN-y nie są zgodne.");
   const { salt, wrap } = await wrapDEKForPin(pin);
-  S.config.accounts.push({ id: uuid(), name, role, salt, wrap, fails: 0, lockUntil: 0, active: true, createdAt: new Date().toISOString() });
+  const recCode = genRecoveryCode();
+  const rec = await wrapDEKWith(normalizeRecovery(recCode));
+  S.config.accounts.push({ id: uuid(), name, role, salt, wrap, recSalt: rec.salt, recWrap: rec.wrap, fails: 0, lockUntil: 0, active: true, createdAt: new Date().toISOString() });
   await saveConfig(); scheduleSync();
   $("new-acc-name").value = ""; $("new-acc-pin").value = ""; $("new-acc-pin2").value = "";
   renderAccounts();
+  const emailedTo = await emailRecoveryCode(recCode, name);
+  await showRecoveryCode(recCode, name, emailedTo);
 });
 
 /* --- zmiana własnego PIN (każdy użytkownik) --- */
@@ -2124,10 +2513,33 @@ KLAUZULA INFORMACYJNA (RODO) DLA UŻYTKOWNIKÓW APLIKACJI
 6. Dane nie są wykorzystywane do profilowania ani automatycznego podejmowania decyzji.
 
 Kontakt w sprawie danych: Offhand Hanna Nobis.`;
+const APP_URL = "https://signoffbyoffhand.github.io/";
+{
+  const ic = $("btn-install-copy");
+  if (ic) ic.addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(APP_URL); ic.textContent = "✅ Skopiowano"; setTimeout(() => ic.textContent = "📋 Kopiuj link", 2000); }
+    catch { ic.textContent = "Skopiuj ręcznie: " + APP_URL; }
+  });
+}
 $("link-rodo").addEventListener("click", (e) => { e.preventDefault(); $("rodo-doc").textContent = RODO_USERS_TEXT; $("rodo-modal").hidden = false; });
 $("btn-rodo-close").addEventListener("click", () => { $("rodo-modal").hidden = true; });
-$("link-reset").addEventListener("click", (e) => { e.preventDefault(); $("reset-modal").hidden = false; });
+$("link-reset").addEventListener("click", (e) => {
+  e.preventDefault();
+  $("rec-code").value = ""; $("rec-pin").value = "";
+  $("rec-status").textContent = "";
+  $("reset-modal").hidden = false;
+});
 $("btn-reset-close").addEventListener("click", () => { $("reset-modal").hidden = true; });
+$("btn-rec-go").addEventListener("click", async () => {
+  const st = $("rec-status");
+  const code = $("rec-code").value, pin = $("rec-pin").value;
+  if (normalizeRecovery(code).length < 12) { st.textContent = "🛑 Wpisz pełny kod odzyskiwania."; return; }
+  if (!PIN_RE.test(pin)) { st.textContent = "🛑 Nowy PIN musi mieć co najmniej 6 cyfr."; return; }
+  st.textContent = "Sprawdzam kod…";
+  const acc = await recoverWithCode(code, pin);
+  if (acc) { $("reset-modal").hidden = true; enterHome(); }
+  else st.textContent = "🛑 Nieprawidłowy kod odzyskiwania (albo to konto nie ma jeszcze kodu).";
+});
 
 boot();
 
