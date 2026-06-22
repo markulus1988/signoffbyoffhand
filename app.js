@@ -458,6 +458,34 @@ $("btn-setup").addEventListener("click", async () => {
   enterHome();
 });
 
+/* --- pierwsze uruchomienie: „Mam już konto — przywróć z chmury" (pobiera konta + dane z backupu) --- */
+$("btn-firstrun-restore").addEventListener("click", () => {
+  const b = $("firstrun-restore-box"); b.hidden = !b.hidden;
+  if (!b.hidden) setTimeout(() => $("fr-pass").focus(), 60);
+});
+$("btn-fr-go").addEventListener("click", async () => {
+  const st = $("fr-status"), pass = $("fr-pass").value.trim();
+  if (!pass) { st.textContent = "🛑 Wpisz hasło konta technicznego (dostaniesz je od Marka)."; return; }
+  if (!navigator.onLine) { st.textContent = "🛑 Brak internetu — przywracanie wymaga połączenia."; return; }
+  st.textContent = "Łączę z chmurą i pobieram kopię…";
+  try {
+    S.vault = { fb: { enabled: true, apiKey: FB_DEFAULTS.apiKey, projectId: FB_DEFAULTS.projectId, email: FB_DEFAULTS.email, password: pass } };
+    const devices = await fbListDevices();
+    if (!devices.length) { S.vault = null; st.textContent = "🛑 W chmurze nie ma jeszcze żadnej kopii do przywrócenia."; return; }
+    devices.sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
+    const data = await fbDownload(devices[0].deviceId);
+    await applyBackup(data.payload);
+    // własny identyfikator urządzenia (osobny slot kopii w chmurze)
+    const cfg = await metaGet("config");
+    if (cfg) { cfg.deviceId = uuid(); cfg.deviceName = "SignOff · " + (navigator.platform || "urządzenie"); await metaSet("config", cfg); }
+    st.textContent = "✅ Przywrócono konta i dane. Za chwilę zaloguj się swoim PIN-em.";
+    setTimeout(() => location.reload(), 900);
+  } catch (e) {
+    S.vault = null;
+    st.textContent = "🛑 " + (/INVALID|PASSWORD|EMAIL|CREDENTIAL/i.test(e.message || "") ? "Błędne hasło konta technicznego." : (e.message || "Nie udało się przywrócić."));
+  }
+});
+
 /* --- logowanie kontem --- */
 let accSelected = null;
 function enterLogin() {

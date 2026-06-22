@@ -35,6 +35,16 @@
       </div>
       <p id="setup-error" class="error" hidden></p>
       <button class="btn primary big" id="btn-setup">Rozpocznij</button>
+
+      <div class="firstrun-restore">
+        <p class="tiny muted">Masz już konto i kopię w chmurze (np. na innym urządzeniu)?</p>
+        <button class="btn" id="btn-firstrun-restore">📥 Mam już konto — przywróć z chmury</button>
+        <div id="firstrun-restore-box" hidden>
+          <label class="tiny">Hasło konta technicznego (dostaniesz je od Marka)<input type="password" id="fr-pass" autocomplete="off" placeholder="••••••••"></label>
+          <button class="btn primary" id="btn-fr-go">⬇ Pobierz i przywróć</button>
+          <p id="fr-status" class="tiny muted"></p>
+        </div>
+      </div>
     </div>
 
     <!-- normalne logowanie -->

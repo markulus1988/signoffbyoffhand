@@ -785,3 +785,8 @@ details.adv summary b { color: var(--ink-2); }
 .lock-head .lock-logo-off { height: 54px; width: auto; opacity: .95; flex: 0 0 auto; }
 .lock-head .wordmark { align-items: flex-end; }
 @media (max-width: 420px) { .lock-head .lock-logo-off { height: 44px; } }
+
+/* --- Pierwsze uruchomienie: przywracanie z chmury --- */
+.firstrun-restore { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+.firstrun-restore .btn { width: 100%; margin-top: 8px; }
+#firstrun-restore-box { margin-top: 10px; text-align: left; }
