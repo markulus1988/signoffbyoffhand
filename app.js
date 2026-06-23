@@ -582,31 +582,73 @@ async function recordLogin(acc, kind) {
   S.vault.loginLog.push(entry);
   if (S.vault.loginLog.length > 300) S.vault.loginLog = S.vault.loginLog.slice(-300);
   await saveVault();
-  // świeża lokalizacja (jeśli się uda) zastąpi „ostatnią znaną"; nie blokuje logowania
-  if (navigator.geolocation) {
+  resolveLoginLocation(entry); // GPS → IP → ostatnia znana (nie blokuje logowania)
+}
+/* Skuteczne ustalenie miejsca: 1) GPS, 2) przybliżone z adresu IP (miasto/kraj), 3) ostatnia znana. */
+async function resolveLoginLocation(entry) {
+  // 1. GPS (dokładny)
+  const gps = await new Promise(res => {
+    if (!navigator.geolocation) return res(null);
     navigator.geolocation.getCurrentPosition(
-      pos => { entry.geo = { lat: +pos.coords.latitude.toFixed(4), lon: +pos.coords.longitude.toFixed(4), acc: Math.round(pos.coords.accuracy) }; saveVault(); },
-      () => {}, { enableHighAccuracy: false, timeout: 10000, maximumAge: 600000 });
+      p => res({ lat: +p.coords.latitude.toFixed(4), lon: +p.coords.longitude.toFixed(4), acc: Math.round(p.coords.accuracy), source: "gps" }),
+      () => res(null), { enableHighAccuracy: true, timeout: 9000, maximumAge: 120000 });
+  });
+  if (gps) { entry.geo = gps; await saveVault(); return; }
+  // 2. Przybliżone z IP (miasto/kraj) — gdy GPS niedostępny/odmówiony
+  if (navigator.onLine) {
+    try {
+      const r = await fetch("https://ipapi.co/json/");
+      if (r.ok) {
+        const d = await r.json();
+        if (d && d.latitude != null && d.longitude != null) {
+          entry.geo = { lat: +(+d.latitude).toFixed(4), lon: +(+d.longitude).toFixed(4), city: [d.city, d.country_name].filter(Boolean).join(", "), approx: true, source: "ip" };
+          await saveVault(); return;
+        }
+      }
+    } catch { /* brak sieci / API niedostępne — zostaje „ostatnia znana" */ }
   }
+  // 3. (entry.geo zostało już ustawione na „ostatnią znaną" przy tworzeniu)
+}
+function nameInitials(name) {
+  const parts = (name || "").trim().split(/\s+/).filter(Boolean);
+  return parts.length ? parts.map(w => w[0].toUpperCase()).join(".") + "." : "—";
 }
 function renderLoginLog() {
   const box = $("loginlog-list"); if (!box) return;
   const log = ((S.vault && S.vault.loginLog) || []).slice().reverse();
-  if (!log.length) { box.innerHTML = '<p class="tiny muted">Brak zapisanych logowań.</p>'; return; }
+  if (!log.length) { box.innerHTML = '<p class="tiny muted">Brak wpisów.</p>'; return; }
   box.innerHTML = log.map(e => {
-    const where = e.geo
-      ? `📍 ${e.geo.approx ? "≈ " : ""}<a href="https://maps.google.com/?q=${e.geo.lat},${e.geo.lon}" target="_blank" rel="noopener">${e.geo.lat}, ${e.geo.lon}</a> (${e.geo.approx ? "ostatnia znana" : "±" + e.geo.acc + " m"})`
-      : "📍 brak lokalizacji";
-    return `<div class="attach-row"><div class="attach-info"><b>${esc(e.name || "")}</b> <span class="tiny muted">${roleLabel(e.role)}${e.kind && e.kind !== "logowanie" ? " · " + esc(e.kind) : ""}</span><br>
-      <span class="tiny muted">🕘 ${new Date(e.at).toLocaleString("pl-PL")} · 📱 ${esc(e.device || "")}<br>${where}</span></div></div>`;
+    let detail;
+    if (!e.geo) detail = "brak lokalizacji";
+    else {
+      const link = `<a href="https://maps.google.com/?q=${e.geo.lat},${e.geo.lon}" target="_blank" rel="noopener">${e.geo.lat}, ${e.geo.lon}</a>`;
+      if (e.geo.source === "ip") detail = `${link}${e.geo.city ? " · " + esc(e.geo.city) : ""} (wg IP, przybliżona)`;
+      else if (e.geo.approx) detail = `≈ ${link} (ostatnia znana)`;
+      else detail = `${link} (±${e.geo.acc} m)`;
+    }
+    return `<div class="attach-row"><div class="attach-info">
+      <b>${esc(nameInitials(e.name))}</b>${e.kind && e.kind !== "logowanie" ? ` <span class="tiny muted">${esc(e.kind)}</span>` : ""}
+      <span class="loc-wrap"><button class="loc-pin" type="button" title="Pokaż lokalizację">📍</button><span class="loc-detail tiny muted" hidden>${detail}</span></span><br>
+      <span class="tiny muted">🕘 ${new Date(e.at).toLocaleString("pl-PL")} · 📱 ${esc(e.device || "")}</span></div></div>`;
   }).join("");
+  box.querySelectorAll(".loc-pin").forEach(b => b.addEventListener("click", () => { const d = b.nextElementSibling; if (d) d.hidden = !d.hidden; }));
 }
 {
   const c = $("btn-loginlog-clear");
   if (c) c.addEventListener("click", async () => {
-    if (!await uiConfirm("Wyczyścić cały rejestr logowań? Tej operacji nie można cofnąć.", { danger: true })) return;
+    if (!await uiConfirm("Wyczyścić wszystkie logi? Tej operacji nie można cofnąć.", { danger: true })) return;
     S.vault.loginLog = []; await saveVault(); renderLoginLog();
   });
+  // „Logs" otwiera się dopiero po potrójnym kliknięciu (zwykły klik nie rozwija)
+  const sum = document.querySelector("#grp-loginlog > summary");
+  if (sum) {
+    let n = 0, t = null;
+    sum.addEventListener("click", (e) => {
+      e.preventDefault();
+      n++; clearTimeout(t); t = setTimeout(() => { n = 0; }, 700);
+      if (n >= 3) { n = 0; const d = document.getElementById("grp-loginlog"); d.open = !d.open; if (d.open) renderLoginLog(); }
+    });
+  }
 }
 $("btn-unlock").addEventListener("click", login);
 $("lock-pin").addEventListener("keydown", e => { if (e.key === "Enter") login(); });

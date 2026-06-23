@@ -791,3 +791,11 @@ details.adv summary b { color: var(--ink-2); }
 .firstrun-restore { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
 .firstrun-restore .btn { width: 100%; margin-top: 8px; }
 #firstrun-restore-box { margin-top: 10px; text-align: left; }
+
+/* --- „Logs" (ukryty rejestr): bez trójkąta, pinezka klikalna --- */
+#grp-loginlog > summary { list-style: none; cursor: default; }
+#grp-loginlog > summary::-webkit-details-marker { display: none; }
+#grp-loginlog > summary::marker { content: ""; }
+.loc-wrap { display: inline-flex; align-items: center; gap: 6px; vertical-align: middle; }
+.loc-pin { background: none; border: none; cursor: pointer; font-size: 1rem; line-height: 1; padding: 0 2px; color: inherit; }
+.loc-detail { white-space: nowrap; }
