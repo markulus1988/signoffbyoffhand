@@ -346,16 +346,29 @@ function getBestPosition(maxMs) {
     setTimeout(finish, maxMs);
   });
 }
+/* „Pokazano raz" trzymane w DWÓCH miejscach na urządzeniu (localStorage + IndexedDB),
+   żeby przeżyło aktualizację apki i ewentualne czyszczenie jednego z magazynów.
+   To jest PER-URZĄDZENIE (nie synchronizuje się) — każdy fizyczny sprzęt pyta raz. */
+async function geoIsPrimed() {
+  try { if (localStorage.getItem("geoPrimed") === "1") return true; } catch {}
+  try { if (await metaGet("geoPrimed")) return true; } catch {}
+  return false;
+}
+async function markGeoPrimed() {
+  try { localStorage.setItem("geoPrimed", "1"); } catch {}
+  try { await metaSet("geoPrimed", true); } catch {}
+}
 /* Komunikat „priming" PRZED systemowym pytaniem o lokalizację (raz na urządzenie). */
 async function ensureGeoPrimed() {
-  try { if (localStorage.getItem("geoPrimed")) return; } catch {}
+  if (await geoIsPrimed()) return;
   const st = await geoPermissionState();
-  if (st === "granted" || st === "denied") { try { localStorage.setItem("geoPrimed", "1"); } catch {} return; }
+  // zgoda już udzielona lub odrzucona w przeglądarce → nie pytamy ponownie (przeżywa aktualizacje)
+  if (st === "granted" || st === "denied") { await markGeoPrimed(); return; }
   await uiAlert(
     "Za chwilę telefon zapyta o dostęp do lokalizacji. Wybierz „Zezwól” (jeśli jest opcja — najlepiej „zawsze”/„podczas używania aplikacji”).\n\n" +
     "Miejsce podpisania to ważny dowód: bez lokalizacji materiał dowodowy jest słabszy, gdyby ktoś podważył zgodę.",
     { title: "📍 Lokalizacja = mocniejszy dowód" });
-  try { localStorage.setItem("geoPrimed", "1"); } catch {}
+  await markGeoPrimed();
 }
 async function tryGeolocate(w) {
   if (!navigator.geolocation) { auditEvent(w, "geolokalizacja", "niedostępna: brak wsparcia w przeglądarce"); return; }
