@@ -632,48 +632,63 @@ async function resolveLoginLocation(entry) {
   const st = await geoPermissionState();
   if (st === "granted") {
     const gps = await getBestPosition(10000);
-    if (gps) { entry.geo = { ...gps, source: "gps" }; await saveVault(); return; }
+    if (gps) entry.geo = { ...gps, source: "gps" };
   } else if (st === "denied") {
-    entry.geoBlocked = true; await saveVault();
+    entry.geoBlocked = true;
   }
-  // 2. Przybliżone z IP (miasto/kraj) — bez żadnego pytania
-  if (navigator.onLine) {
+  // 2. Przybliżone z IP (miasto/kraj) — bez żadnego pytania (gdy nie ma dokładnego GPS)
+  if (!(entry.geo && entry.geo.source === "gps") && navigator.onLine) {
     try {
       const r = await fetch("https://ipapi.co/json/");
       if (r.ok) {
         const d = await r.json();
         if (d && d.latitude != null && d.longitude != null) {
           entry.geo = { lat: +(+d.latitude).toFixed(4), lon: +(+d.longitude).toFixed(4), city: [d.city, d.country_name].filter(Boolean).join(", "), approx: true, source: "ip" };
-          await saveVault(); return;
         }
       }
     } catch { /* brak sieci / API niedostępne — zostaje „ostatnia znana" */ }
   }
-  // 3. (entry.geo zostało już ustawione na „ostatnią znaną" przy tworzeniu)
+  // 3. (gdy nic nie wyszło, zostaje „ostatnia znana" ustawiona przy tworzeniu)
+  await saveVault();
+  // wspólny rejestr w chmurze (zaszyfrowany E2E) — gdy kopia w chmurze włączona
+  try { if (fbCfg() && navigator.onLine) await fbPushLogin(entry); } catch {}
 }
 function nameInitials(name) {
   const parts = (name || "").trim().split(/\s+/).filter(Boolean);
   return parts.length ? parts.map(w => w[0].toUpperCase()).join(".") + "." : "—";
 }
+function loginEntryHtml(e) {
+  let detail;
+  if (!e.geo) detail = e.geoBlocked ? "lokalizacja zablokowana w przeglądarce" : "brak lokalizacji";
+  else {
+    const link = `<a href="https://maps.google.com/?q=${e.geo.lat},${e.geo.lon}" target="_blank" rel="noopener">${e.geo.lat}, ${e.geo.lon}</a>`;
+    if (e.geo.source === "ip") detail = `${link}${e.geo.city ? " · " + esc(e.geo.city) : ""} (wg IP, przybliżona)`;
+    else if (e.geo.approx) detail = `≈ ${link} (ostatnia znana)`;
+    else detail = `${link} (±${e.geo.acc} m)`;
+  }
+  return `<div class="attach-row"><div class="attach-info">
+    <b>${esc(nameInitials(e.name))}</b>${e.kind && e.kind !== "logowanie" ? ` <span class="tiny muted">${esc(e.kind)}</span>` : ""}
+    <span class="loc-wrap"><button class="loc-pin" type="button" title="Pokaż lokalizację">📍</button><span class="loc-detail tiny muted" hidden>${detail}</span></span><br>
+    <span class="tiny muted">🕘 ${new Date(e.at).toLocaleString("pl-PL")} · 📱 ${esc(e.device || "")}</span></div></div>`;
+}
+function renderLoginLogList(box, log) {
+  const arr = (log || []).slice().sort((a, b) => (b.at || "").localeCompare(a.at || "")); // najnowsze na górze
+  box.innerHTML = arr.length ? arr.map(loginEntryHtml).join("") : '<p class="tiny muted">Brak wpisów.</p>';
+  box.querySelectorAll(".loc-pin").forEach(b => b.addEventListener("click", () => { const d = b.nextElementSibling; if (d) d.hidden = !d.hidden; }));
+}
 function renderLoginLog() {
   const box = $("loginlog-list"); if (!box) return;
-  const log = ((S.vault && S.vault.loginLog) || []).slice().reverse();
-  if (!log.length) { box.innerHTML = '<p class="tiny muted">Brak wpisów.</p>'; return; }
-  box.innerHTML = log.map(e => {
-    let detail;
-    if (!e.geo) detail = e.geoBlocked ? "lokalizacja zablokowana w przeglądarce" : "brak lokalizacji";
-    else {
-      const link = `<a href="https://maps.google.com/?q=${e.geo.lat},${e.geo.lon}" target="_blank" rel="noopener">${e.geo.lat}, ${e.geo.lon}</a>`;
-      if (e.geo.source === "ip") detail = `${link}${e.geo.city ? " · " + esc(e.geo.city) : ""} (wg IP, przybliżona)`;
-      else if (e.geo.approx) detail = `≈ ${link} (ostatnia znana)`;
-      else detail = `${link} (±${e.geo.acc} m)`;
-    }
-    return `<div class="attach-row"><div class="attach-info">
-      <b>${esc(nameInitials(e.name))}</b>${e.kind && e.kind !== "logowanie" ? ` <span class="tiny muted">${esc(e.kind)}</span>` : ""}
-      <span class="loc-wrap"><button class="loc-pin" type="button" title="Pokaż lokalizację">📍</button><span class="loc-detail tiny muted" hidden>${detail}</span></span><br>
-      <span class="tiny muted">🕘 ${new Date(e.at).toLocaleString("pl-PL")} · 📱 ${esc(e.device || "")}</span></div></div>`;
-  }).join("");
-  box.querySelectorAll(".loc-pin").forEach(b => b.addEventListener("click", () => { const d = b.nextElementSibling; if (d) d.hidden = !d.hidden; }));
+  renderLoginLogList(box, (S.vault && S.vault.loginLog) || []); // najpierw to urządzenie (szybko)
+  // dołącz wpisy z chmury (wszystkie urządzenia), jeśli kopia w chmurze włączona
+  if (fbCfg() && navigator.onLine) {
+    fbListLogins().then(cloud => {
+      if (!cloud.length) return;
+      const local = (S.vault && S.vault.loginLog) || [];
+      const seen = new Set(), merged = [];
+      [...cloud, ...local].forEach(e => { const k = (e.at || "") + "|" + (e.device || ""); if (!seen.has(k)) { seen.add(k); merged.push(e); } });
+      renderLoginLogList(box, merged);
+    }).catch(() => {});
+  }
 }
 {
   const c = $("btn-loginlog-clear");
@@ -1116,6 +1131,30 @@ async function fbListDevices() {
     const f = d.fields || {};
     return { deviceId: id, deviceName: (f.deviceName && f.deviceName.stringValue) || id, updatedAt: f.updatedAt && f.updatedAt.stringValue };
   });
+}
+/* --- Wspólny rejestr logowań (zaszyfrowany E2E) — dopisywanie i czytanie ze wszystkich urządzeń --- */
+async function fbPushLogin(entry) {
+  const c = fbCfg(); if (!c || !S.key) return;
+  const token = await fbSignIn();
+  const payload = { at: entry.at, name: entry.name, role: entry.role, device: entry.device, kind: entry.kind, geo: entry.geo || null, geoBlocked: !!entry.geoBlocked, deviceId: (S.config && S.config.deviceId) || "" };
+  const enc = await encryptJSON(S.key, payload); // {iv, ct} — Google widzi tylko szyfrogram
+  const id = `${(S.config && S.config.deviceId) || "dev"}__${(entry.at || "").replace(/[^0-9]/g, "")}`;
+  const body = { fields: { at: { stringValue: entry.at || "" }, p: { stringValue: JSON.stringify(enc) } } };
+  const r = await fetch(fbDocUrl(c, `signoff_logins/${id}`), { method: "PATCH", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  if (!r.ok) throw new Error("push login " + r.status);
+}
+async function fbListLogins() {
+  const c = fbCfg(); if (!c || !S.key) return [];
+  const token = await fbSignIn();
+  const resp = await fetch(fbDocUrl(c, `signoff_logins?pageSize=300`), { headers: { Authorization: "Bearer " + token } });
+  const out = await resp.json().catch(() => ({}));
+  if (!resp.ok) return [];
+  const res = [];
+  for (const d of (out.documents || [])) {
+    const f = d.fields || {};
+    if (f.p && f.p.stringValue) { try { res.push(await decryptJSON(S.key, JSON.parse(f.p.stringValue))); } catch {} }
+  }
+  return res;
 }
 
 /* --- A+B: niezmienialna historia kopii — każda migawka to osobny, NIENADPISYWALNY wpis.

@@ -17,6 +17,13 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // WSPÓLNY REJESTR LOGOWAŃ (zaszyfrowany E2E) — każde urządzenie tylko DOPISUJE i CZYTA.
+    // Nadpisanie/skasowanie zabronione — logu nie da się zmienić ani wyczyścić zdalnie.
+    match /signoff_logins/{doc} {
+      allow read, create: if request.auth != null;
+      allow update, delete: if false;
+    }
+
     // Wszystko inne — zabronione.
     match /{document=**} { allow read, write: if false; }
   }
