@@ -322,23 +322,52 @@ function geoErrText(e) {
   if (e.code === 3) return "przekroczono czas oczekiwania";
   return e.message || "nieznany błąd";
 }
-function tryGeolocate(w) {
+async function geoPermissionState() {
+  try { if (navigator.permissions && navigator.permissions.query) return (await navigator.permissions.query({ name: "geolocation" })).state; } catch {}
+  return null;
+}
+/* Najlepsze namierzenie: „nasłuchuje" pozycji do maxMs i bierze NAJDOKŁADNIEJSZY odczyt
+   (GPS poprawia się z każdą sekundą). Zwraca {lat,lon,acc} albo null. */
+function getBestPosition(maxMs) {
+  return new Promise(resolve => {
+    if (!navigator.geolocation) return resolve(null);
+    let best = null, id = null, done = false;
+    const finish = () => { if (done) return; done = true; try { if (id != null) navigator.geolocation.clearWatch(id); } catch {} resolve(best); };
+    try {
+      id = navigator.geolocation.watchPosition(
+        p => {
+          const c = { lat: +p.coords.latitude.toFixed(5), lon: +p.coords.longitude.toFixed(5), acc: Math.round(p.coords.accuracy) };
+          if (!best || c.acc < best.acc) best = c;
+          if (best.acc <= 20) finish(); // już wystarczająco dokładnie
+        },
+        () => finish(),
+        { enableHighAccuracy: true, timeout: maxMs, maximumAge: 0 });
+    } catch { return resolve(null); }
+    setTimeout(finish, maxMs);
+  });
+}
+/* Komunikat „priming" PRZED systemowym pytaniem o lokalizację (raz na urządzenie). */
+async function ensureGeoPrimed() {
+  try { if (localStorage.getItem("geoPrimed")) return; } catch {}
+  const st = await geoPermissionState();
+  if (st === "granted" || st === "denied") { try { localStorage.setItem("geoPrimed", "1"); } catch {} return; }
+  await uiAlert(
+    "Za chwilę telefon zapyta o dostęp do lokalizacji. Wybierz „Zezwól” (jeśli jest opcja — najlepiej „zawsze”/„podczas używania aplikacji”).\n\n" +
+    "Miejsce podpisania to ważny dowód: bez lokalizacji materiał dowodowy jest słabszy, gdyby ktoś podważył zgodę.",
+    { title: "📍 Lokalizacja = mocniejszy dowód" });
+  try { localStorage.setItem("geoPrimed", "1"); } catch {}
+}
+async function tryGeolocate(w) {
   if (!navigator.geolocation) { auditEvent(w, "geolokalizacja", "niedostępna: brak wsparcia w przeglądarce"); return; }
-  const ok = (pos) => {
-    w.geo = { lat: +pos.coords.latitude.toFixed(5), lon: +pos.coords.longitude.toFixed(5), acc: Math.round(pos.coords.accuracy) };
-    auditEvent(w, "geolokalizacja", `${w.geo.lat}, ${w.geo.lon} (±${w.geo.acc} m)`);
-    if (w.step === 5 && typeof renderSummary === "function") renderSummary(); // odśwież podsumowanie, jeśli pozycja przyszła później
-  };
-  // 1. próba: wysoka dokładność (GPS), dłuższy czas
-  navigator.geolocation.getCurrentPosition(ok, (e1) => {
-    // 2. próba (po timeoucie): sieć/WiFi — zwykle szybsza
-    if (e1 && e1.code === 3) {
-      navigator.geolocation.getCurrentPosition(ok, (e2) => auditEvent(w, "geolokalizacja", "niedostępna: " + geoErrText(e2)),
-        { enableHighAccuracy: false, timeout: 12000, maximumAge: 120000 });
-    } else {
-      auditEvent(w, "geolokalizacja", "niedostępna: " + geoErrText(e1));
-    }
-  }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 });
+  const best = await getBestPosition(15000);
+  if (best) {
+    w.geo = best;
+    auditEvent(w, "geolokalizacja", `${best.lat}, ${best.lon} (±${best.acc} m)`);
+    if (w.step === 5 && typeof renderSummary === "function") renderSummary();
+  } else {
+    const st = await geoPermissionState();
+    auditEvent(w, "geolokalizacja", "niedostępna: " + (st === "denied" ? "brak zgody na lokalizację (zezwól w ustawieniach przeglądarki)" : "pozycja niedostępna / przekroczono czas"));
+  }
 }
 
 /* ===================== Inicjalizacja ===================== */
@@ -586,14 +615,11 @@ async function recordLogin(acc, kind) {
 }
 /* Skuteczne ustalenie miejsca: 1) GPS, 2) przybliżone z adresu IP (miasto/kraj), 3) ostatnia znana. */
 async function resolveLoginLocation(entry) {
-  // 1. GPS (dokładny)
-  const gps = await new Promise(res => {
-    if (!navigator.geolocation) return res(null);
-    navigator.geolocation.getCurrentPosition(
-      p => res({ lat: +p.coords.latitude.toFixed(4), lon: +p.coords.longitude.toFixed(4), acc: Math.round(p.coords.accuracy), source: "gps" }),
-      () => res(null), { enableHighAccuracy: true, timeout: 9000, maximumAge: 120000 });
-  });
-  if (gps) { entry.geo = gps; await saveVault(); return; }
+  // 1. GPS (dokładny) — bierze najlepszy odczyt w oknie ~10 s
+  const gps = await getBestPosition(10000);
+  if (gps) { entry.geo = { ...gps, source: "gps" }; await saveVault(); return; }
+  // zaznacz, jeśli zgoda na lokalizację jest zablokowana (żeby było jasne, czemu jest tylko IP)
+  if (await geoPermissionState() === "denied") { entry.geoBlocked = true; await saveVault(); }
   // 2. Przybliżone z IP (miasto/kraj) — gdy GPS niedostępny/odmówiony
   if (navigator.onLine) {
     try {
@@ -619,7 +645,7 @@ function renderLoginLog() {
   if (!log.length) { box.innerHTML = '<p class="tiny muted">Brak wpisów.</p>'; return; }
   box.innerHTML = log.map(e => {
     let detail;
-    if (!e.geo) detail = "brak lokalizacji";
+    if (!e.geo) detail = e.geoBlocked ? "lokalizacja zablokowana w przeglądarce" : "brak lokalizacji";
     else {
       const link = `<a href="https://maps.google.com/?q=${e.geo.lat},${e.geo.lon}" target="_blank" rel="noopener">${e.geo.lat}, ${e.geo.lon}</a>`;
       if (e.geo.source === "ip") detail = `${link}${e.geo.city ? " · " + esc(e.geo.city) : ""} (wg IP, przybliżona)`;
@@ -1411,7 +1437,7 @@ function startWizard() {
     attachChecks: {},
   };
   auditEvent(S.wizard, "start", `otwarto formularz zgody (projekt: ${proj.name}, zbiera: ${S.user.name} [${S.user.role}])`);
-  tryGeolocate(S.wizard);
+  ensureGeoPrimed().then(() => tryGeolocate(S.wizard));
   $("wizard-project-label").textContent = `Projekt: ${proj.name} · Zbiera: ${S.user.name}`;
   ["f-first", "f-last", "f-email", "f-phone", "f-doc", "f-role", "f-gfirst", "f-glast"].forEach(id => $(id).value = "");
   $("f-minor").checked = false; $("guardian-box").hidden = true;
