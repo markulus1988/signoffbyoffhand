@@ -661,10 +661,14 @@ function loginEntryHtml(e) {
   let detail;
   if (!e.geo) detail = e.geoBlocked ? "lokalizacja zablokowana w przeglądarce" : "brak lokalizacji";
   else {
-    const link = `<a href="https://maps.google.com/?q=${e.geo.lat},${e.geo.lon}" target="_blank" rel="noopener">${e.geo.lat}, ${e.geo.lon}</a>`;
-    if (e.geo.source === "ip") detail = `${link}${e.geo.city ? " · " + esc(e.geo.city) : ""} (wg IP, przybliżona)`;
-    else if (e.geo.approx) detail = `≈ ${link} (ostatnia znana)`;
-    else detail = `${link} (±${e.geo.acc} m)`;
+    const coords = `${e.geo.lat}, ${e.geo.lon}`;
+    // współrzędne jako tekst (zawsze do odczytania/skopiowania) + oficjalny link do map (bez przekierowań)
+    const map = `<a href="https://www.google.com/maps/search/?api=1&query=${e.geo.lat}%2C${e.geo.lon}" target="_blank" rel="noopener noreferrer">🗺 mapa</a>`;
+    let suffix;
+    if (e.geo.source === "ip") suffix = `${e.geo.city ? " · " + esc(e.geo.city) : ""} (wg IP, przybliżona)`;
+    else if (e.geo.approx) suffix = " (ostatnia znana)";
+    else suffix = ` (±${e.geo.acc} m)`;
+    detail = `<span class="loc-coords">${coords}</span> ${map}${suffix}`;
   }
   return `<div class="attach-row"><div class="attach-info">
     <b>${esc(nameInitials(e.name))}</b>${e.kind && e.kind !== "logowanie" ? ` <span class="tiny muted">${esc(e.kind)}</span>` : ""}

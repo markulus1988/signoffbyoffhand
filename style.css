@@ -799,3 +799,7 @@ details.adv summary b { color: var(--ink-2); }
 .loc-wrap { display: inline-flex; align-items: center; gap: 6px; vertical-align: middle; }
 .loc-pin { background: none; border: none; cursor: pointer; font-size: 1rem; line-height: 1; padding: 0 2px; color: inherit; }
 .loc-detail { white-space: nowrap; }
+
+/* współrzędne w logach — zawsze czytelne i łatwe do skopiowania (gdy link do mapy bywa blokowany) */
+.loc-coords { user-select: all; -webkit-user-select: all; font-family: var(--mono); }
+.loc-detail { white-space: normal; }
