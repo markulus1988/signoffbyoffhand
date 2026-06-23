@@ -221,6 +221,7 @@ function normalizeVault(v) {
   if (v.producer !== dn) { v.producer = dn; changed = true; } // mirror dla zgodności wstecznej
   // Biblioteka zgód i dokumentów (wspólna, przypinana do projektów). Migracja starych project.files[] → pozycje „dokument".
   if (!Array.isArray(v.library)) { v.library = []; changed = true; }
+  if (!Array.isArray(v.loginLog)) { v.loginLog = []; changed = true; }
   (v.projects || []).forEach(p => {
     if (Array.isArray(p.files) && p.files.length) {
       for (const f of p.files) {
@@ -546,6 +547,7 @@ async function login() {
     // adres, na który ekran logowania wysyła prośby o reset PIN-u (dostępny zanim ktoś się zaloguje)
     const da = defaultAdmin();
     if (da && da.email && S.config.adminEmail !== da.email) { S.config.adminEmail = da.email; await saveConfig(); }
+    await recordLogin(acc, "logowanie");
     await loadRecords();
     enterHome();
   } catch {
@@ -560,6 +562,45 @@ async function login() {
     await saveConfig();
     err.hidden = false;
   }
+}
+/* Rejestr logowań (kto / kiedy / gdzie) — w zaszyfrowanej skrzynce, widoczny dla admina i supportu. */
+async function recordLogin(acc, kind) {
+  if (!S.vault) return;
+  if (!Array.isArray(S.vault.loginLog)) S.vault.loginLog = [];
+  const entry = {
+    at: new Date().toISOString(), userId: acc.id, name: acc.name, role: acc.role,
+    kind: kind || "logowanie",
+    device: (S.config && S.config.deviceName) || (navigator.platform || "urządzenie"),
+    geo: null,
+  };
+  S.vault.loginLog.push(entry);
+  if (S.vault.loginLog.length > 300) S.vault.loginLog = S.vault.loginLog.slice(-300);
+  await saveVault();
+  // lokalizacja „gdzie" — best-effort, nie blokuje logowania (używa świeżej pozycji, jeśli jest)
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      pos => { entry.geo = { lat: +pos.coords.latitude.toFixed(4), lon: +pos.coords.longitude.toFixed(4), acc: Math.round(pos.coords.accuracy) }; saveVault(); },
+      () => {}, { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 });
+  }
+}
+function renderLoginLog() {
+  const box = $("loginlog-list"); if (!box) return;
+  const log = ((S.vault && S.vault.loginLog) || []).slice().reverse();
+  if (!log.length) { box.innerHTML = '<p class="tiny muted">Brak zapisanych logowań.</p>'; return; }
+  box.innerHTML = log.map(e => {
+    const where = e.geo
+      ? `📍 <a href="https://maps.google.com/?q=${e.geo.lat},${e.geo.lon}" target="_blank" rel="noopener">${e.geo.lat}, ${e.geo.lon}</a> (±${e.geo.acc} m)`
+      : "📍 brak lokalizacji";
+    return `<div class="attach-row"><div class="attach-info"><b>${esc(e.name || "")}</b> <span class="tiny muted">${roleLabel(e.role)}${e.kind && e.kind !== "logowanie" ? " · " + esc(e.kind) : ""}</span><br>
+      <span class="tiny muted">🕘 ${new Date(e.at).toLocaleString("pl-PL")} · 📱 ${esc(e.device || "")}<br>${where}</span></div></div>`;
+  }).join("");
+}
+{
+  const c = $("btn-loginlog-clear");
+  if (c) c.addEventListener("click", async () => {
+    if (!await uiConfirm("Wyczyścić cały rejestr logowań? Tej operacji nie można cofnąć.", { danger: true })) return;
+    S.vault.loginLog = []; await saveVault(); renderLoginLog();
+  });
 }
 $("btn-unlock").addEventListener("click", login);
 $("lock-pin").addEventListener("keydown", e => { if (e.key === "Enter") login(); });
@@ -593,6 +634,7 @@ async function recoverWithCode(code, newPin) {
     S.user = acc;
     S.vault = await decryptJSON(S.key, await metaGet("vault"));
     if (normalizeVault(S.vault)) await saveVault();
+    await recordLogin(acc, "odzyskiwanie kodem");
     await loadRecords();
     return acc;
   }
@@ -1947,7 +1989,7 @@ function enterSettings() {
     $("mail-email").value = m.email || "hankanobis@offhandfilms.com"; $("mail-pass").value = m.pass || "";
     $("mail-from").value = m.from || ""; $("mail-host").value = m.host || ""; $("mail-port").value = m.port || "";
     $("mail-status").textContent = "";
-    renderProjects(); renderLibrary(); renderAccounts(); renderOutbox(); renderStorageInfo();
+    renderProjects(); renderLibrary(); renderAccounts(); renderLoginLog(); renderOutbox(); renderStorageInfo();
   }
   show("view-settings");
 }
